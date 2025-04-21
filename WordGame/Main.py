@@ -5,13 +5,13 @@ import math
 import asyncio
 
 #UI variables
-_ChainScrollArea: ui.scroll_area = None
+_WinDialog: ui.dialog = None
 
 #UI functions
 def RestartBtn():
     GameLogic.RestartGame()
     StartTargetCards.refresh()
-    TimelineChain.refresh()
+    WordChain.refresh()
 
 def GuessInput(inputBox: ui.input):
     guess = inputBox.value
@@ -20,8 +20,10 @@ def GuessInput(inputBox: ui.input):
         valid, message = GameLogic.GuessWord(guess)
 
         if(valid):
-            TimelineChain.refresh()
+            WordChain.refresh()
             ui.notify(message, type='positive', timeout=1000)
+            if(guess == GameLogic._TargetWord):
+                WinDialog(_WinDialog)
         else:
             ui.notify(message, type='warning', timeout=1000)
     else:
@@ -30,17 +32,27 @@ def GuessInput(inputBox: ui.input):
     inputBox.value = ""
     ui.run_javascript(f"document.getElementById('{inputBox.id}').focus()")
 
+def WinDialog(dialog: ui.dialog):
+    with dialog, ui.card().classes('w-64 h-108 no-shadow border-[1px] items-center'):
+        ui.label("You won!").style("font-weight: bold; font-size: 150%")
+        ui.label(f"Score: {len(GameLogic._WordChain)-1}").style('color: #555555')
+        ui.label(f"Chain")
+        with ui.scroll_area().classes('border rounded justify-center items-center'):
+            for w in GameLogic._WordChain:
+                ui.label(w)
+        ui.button(icon='r_refresh', on_click=lambda e: (dialog.close(), RestartBtn()))
+    dialog.open()
+
+
 @ui.refreshable
-def TimelineChain():
+def WordChain():
     for i, word in enumerate(GameLogic._WordChain):
-        with ui.card(align_items='left').classes('flat no-shadow w-full'):
+        with ui.card(align_items='left').classes('border-[1px] no-shadow w-full'):
             with ui.row().classes('gap-4'):
                 ui.label(f'{i}').style('color: #555555')
                 ui.label(word).style('font-weight: bold')
                 
         
-def Lerp(val1: float, val2: float, time: float):
-    return round((val2-val1) * time + val1, 2)
 @ui.refreshable 
 def StartTargetCards():
     with ui.row():
@@ -55,6 +67,10 @@ if(__name__ == "__main__"):
 
     #start of UI
     ui.dark_mode().enable()
+    
+    #winning dialogue setup
+    _WinDialog = ui.dialog()
+    _WinDialog.close()
 
     with ui.header().style('background-color: #555555').style('font-size: 24').classes('h-16 font-weight-bold'):
         ui.button(icon='r_refresh', on_click=lambda e: RestartBtn()).classes('flat')
@@ -70,7 +86,8 @@ if(__name__ == "__main__"):
 
         with ui.scroll_area().classes('border rounded w-64 gap-3') as scrollArea:
             _ChainScrollArea = scrollArea
-            TimelineChain()
+            WordChain()
+    
     
 ui.run(reload=False)
 

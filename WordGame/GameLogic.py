@@ -8,7 +8,7 @@ import FileManager
 import matplotlib.pyplot as plt
 import Utility
 
-DISTANCE_CUTOFF = 0.3 #max distance for word chain
+DISTANCE_CUTOFF = 0.35 #max distance for word chain
 TERMINAL_RANGE = range(100, 3000)
 LEMMA_INPUT = False
 
