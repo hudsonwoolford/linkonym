@@ -11,6 +11,9 @@ PAGES = {
     1 : "Normal",
     2 : "Themed"
 }
+BORDER_COLOR = '#AAAAAA'
+BORDER_WIDTH = '[1px]'
+BORDER_RADIUS = '10px'
 
 #UI functions
 def RestartBtn():
@@ -44,7 +47,7 @@ def GuessInput(inputBox: ui.input):
 #dialog card when you win the game
 def WinDialog(dialog: ui.dialog):
     #set all parameters
-    with dialog, ui.card().classes('w-96 h-108 no-shadow border-[3px] items-center justify-center'):
+    with dialog, ui.card().style(f'border-radius: {BORDER_RADIUS}; border-color: {BORDER_COLOR}').classes(f'w-96 h-108 no-shadow border-{BORDER_WIDTH} items-center justify-center'):
         ui.label("You won!").style("font-weight: bold; font-size: 150%")
         ui.label(f"Score: {len(GameLogic._WordChain)-1} links").style('color: #777777')
         ui.label(f"Chain:")
@@ -65,51 +68,52 @@ def InfoDialog(dialog: ui.dialog):
 def WordChain():
     #create a card for each word
     with ui.column().classes("w-full gap-1"):
-        for i, word in enumerate(GameLogic._WordChain[::-1]):
-            realI = len(GameLogic._WordChain) - 1 - i
-
+        for i, word in enumerate(GameLogic._WordChain):
             chainMessage = f"({GameLogic.WordSim(word, GameLogic._TargetWord, 3)}) to '{GameLogic._TargetWord}'"
-            if(not i == 0):
-                chainMessage = f"({GameLogic.WordSim(word, GameLogic._WordChain[realI-1], 3)})"
+            # if(not i == len(GameLogic._WordChain)-1):
+            #     chainMessage = f"({GameLogic.WordSim(word, GameLogic._WordChain[i+1], 3)})"
 
-            with ui.card(align_items='center').style("height: 2rem").classes('py-0 border-[1px] no-shadow w-full'):
-                with ui.row().classes('w-full h-full justify-between items-center'):
-                    ui.icon("sym_r_keyboard_double_arrow_up")
-                    ui.label(chainMessage).style('font-weight: bold')
-                    ui.icon("sym_r_keyboard_double_arrow_up")
-            with ui.card(align_items='left').style("height: 3rem").classes('py-0 border-[1px] no-shadow w-full items-center'):
+            with ui.card(align_items='left').style(f"height: 3rem; border-color: {BORDER_COLOR}; border-radius: {BORDER_RADIUS}").classes(f'py-0 border-{BORDER_WIDTH} no-shadow w-full items-center'):
                 with ui.row().classes('gap-4 h-full w-full items-center'):
-                    ui.label(f'{realI+1}').style('color: #555555')
+                    ui.label(f'{i+1}').style('color: #555555')
                     ui.label(word).style('font-weight: bold')
-                    # ui.label(f'({distToTarget}) to {GameLogic._TargetWord}').style('color: #777777').classes('ml-auto')
+                    ui.label(f'{chainMessage}').style('color: #777777').classes('ml-auto')
+    
+    ui.element().style("width: 8rem")
+    _ChainScrollArea.scroll_to(percent=100, duration=0.5)
+            # with ui.card(align_items='center').style("height: 2rem").classes('py-0 border-[1px] no-shadow w-full'):
+            #     with ui.row().classes('w-full h-full justify-between items-center'):
+            #         ui.icon("sym_r_keyboard_double_arrow_up")
+            #         ui.label(chainMessage).style('font-weight: bold')
+            #         ui.icon("sym_r_keyboard_double_arrow_up")
     
 @ui.refreshable 
 def StartTargetCards():
     #create cards for start and target
-    with ui.row().classes('gap-0 items-center'):
-            with ui.card(align_items='center').style("width: 10rem").classes('no-shadow border-[1px]'):
-                ui.label(GameLogic._StartWord)
-            ui.icon("sym_r_keyboard_double_arrow_right", size="4rem")
-            with ui.card(align_items='center').style("width: 10rem").classes('w-48 no-shadow border-[1px]'):
-                ui.label(GameLogic._TargetWord)
+    with ui.row().classes('gap-4 items-center'):
+            with ui.card(align_items='center').style(f"height: 3rem; width: 10rem; border-color: {BORDER_COLOR}; border-radius: {BORDER_RADIUS}").classes(f'no-shadow border-{BORDER_WIDTH}'):
+                ui.label(GameLogic._StartWord).classes('absolute-center')
+            ui.icon("sym_r_keyboard_double_arrow_right", size="2rem", color=BORDER_COLOR)
+            with ui.card(align_items='center').style(f"height: 3rem; width: 10rem; border-color: {BORDER_COLOR}; border-radius: {BORDER_RADIUS}").classes(f'w-48 no-shadow border-{BORDER_WIDTH}'):
+                ui.label(GameLogic._TargetWord).classes('absolute-center')
 @ui.refreshable
 def RenderPage(page: int):
     global _ChainScrollArea
 
     if(PAGES[page] == "Normal"):
         with ui.column().classes('w-full h-full items-center'):
-            ui.chip(f"A max distance of ({GameLogic.DISTANCE_CUTOFF}) can be chained.",icon="sym_r_arrow_forward", on_click=lambda e: ui.notify("Build a chain to the target word")).props("outlined")
+            # ui.chip(f"A max distance of ({GameLogic.DISTANCE_CUTOFF}) can be chained.",icon="sym_r_arrow_forward", on_click=lambda e: ui.notify("Build a chain to the target word")).props("outlined")
 
             #show start and target
             StartTargetCards()
 
             #word box
-            inputText = ui.input(placeholder="chain a word...").props('outlined dense autocomplete=off autocapitalize=off').classes('w-96')
+            inputText = ui.input(placeholder="chain a word...").style(f'border-radius: {BORDER_RADIUS}; border-color: {BORDER_COLOR}; border-width: {BORDER_WIDTH}').props('autocomplete=off autocapitalize=off').classes('w-96')
             inputText.on('keydown', lambda e: GuessInput(inputText) if e.args['key'] == "Enter" else None)
 
             #word chain scroll area
             with ui.element().classes("h-screen"):
-                with ui.scroll_area().style("height: 60%").classes('border-[3px] rounded w-96') as scrollArea:
+                with ui.scroll_area().style(f"height: 60%; border-color: {BORDER_COLOR}; border-radius: {BORDER_RADIUS}").classes(f'border-{BORDER_WIDTH} rounded w-96') as scrollArea:
                     _ChainScrollArea = scrollArea
                     WordChain()
 
