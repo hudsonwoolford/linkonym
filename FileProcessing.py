@@ -1,6 +1,7 @@
 import enchant
 import torch
 import stanza
+import time
 
 
 def ProcessGloveToPT(path: str, 
@@ -13,7 +14,7 @@ def ProcessGloveToPT(path: str,
                      ) -> None:
     #initialize nlp
     processors = "tokenize, mwt, pos, lemma" #processors required for lemmatarization and noun identification
-    nlp = stanza.Pipeline(lang='en', processors=processors, device='cuda')
+    nlp = stanza.Pipeline(lang='en', processors=processors, device='cuda', download_method=None)
     del processors
 
     f = open(path, "r", encoding="utf-8")
@@ -27,12 +28,18 @@ def ProcessGloveToPT(path: str,
     bannedTensor = []
     wordTensor = []
 
+    wordDic = enchant.Dict("en_US")
+
     bannedIteration: int = 0
     wordIteration: int = 0
+    timer = time.time()
+    lastTime = timer
     for i, line in enumerate(lines):
         if(i != 0 and i % 1000 == 0):
-            print(f"{i} out of {len(lines)} processed. \n {bannedIteration} banned\n {wordIteration} allowed")
-            break
+            sinceStart = time.time() - timer
+            unitTime = sinceStart/i
+            print(f"{i} out of {len(lines)} processed. \n {bannedIteration} banned\n {wordIteration} allowed. {sinceStart} seconds since start, {time.time() - lastTime} for last 1k. Est remaining: {unitTime*(len(lines)-i)} seconds")
+            lastTime = time.time() 
 
         things = line.split(" ")
         word = str(things[0])
@@ -49,29 +56,44 @@ def ProcessGloveToPT(path: str,
                 if(barrier): break
         if(barrier): continue
 
+        isProperNoun = False
+        firstWord = ""
         if(checkDic):
-            wordDic = enchant.Dict("en_US")
-            barrier |= not wordDic.check(word)
+            if(not wordDic.check(word)): #not in dictionary
+                doc = nlp(word)
+                firstWord = list(doc.iter_words())[0]
+                if(firstWord.pos != "PROPN"):
+                    barrier |= True
+                else:
+                    isProperNoun = True
         if(barrier): continue
 
         #nlp barrier
-        doc = nlp(word)
-        firstWord = list(doc.iter_words())[0]
+        if(not isProperNoun):
+            doc = nlp(word)
+            firstWord = list(doc.iter_words())[0]
+            if(firstWord.pos == "AUX" or firstWord.pos == "INTJ"):
+                doc = nlp(f"the {word}")
+                firstWord = list(doc.iter_words())[1]
 
         # print(f"{word} {firstWord.text}: {firstWord.pos}")
         vector = torch.tensor([float(things[i]) for i in range(1, len(things))])
         if(firstWord.pos in bannedPos):
-            bannedWordData["vocab"][word] = {}
-            bannedWordData["vocab"][word]["pos"] = firstWord.pos
-            bannedWordData["vocab"][word]["lemma"] = firstWord.lemma
-            bannedWordData["vocab"][word]["id"] = bannedIteration
+            bannedWordData["vocab"][word] = {
+                "id" : bannedIteration,
+                "pos" : firstWord.pos,
+                "lemma" : firstWord.lemma,
+                "feats" : firstWord.feats
+            }
             bannedTensor.append(vector)
             bannedIteration+=1
         else:
-            wordData["vocab"][word] = {}
-            wordData["vocab"][word]["pos"] = firstWord.pos
-            wordData["vocab"][word]["pos"] = firstWord.lemma
-            wordData["vocab"][word]["id"] = wordIteration
+            wordData["vocab"][word] = {
+                "id" : wordIteration,
+                "pos" : firstWord.pos,
+                "lemma" : firstWord.lemma,
+                "feats" : firstWord.feats
+            }
             wordTensor.append(vector)
             wordIteration+=1
 
@@ -81,12 +103,7 @@ def ProcessGloveToPT(path: str,
     torch.save(bannedWordData, "output/WikipediaBannedData.pt")
     torch.save(wordData, "output/WikipediaWordData.pt")
 
-# print(f"Is CUDA supported by this system? {torch.cuda.is_available()}")
-# print(f"CUDA version: {torch.version.cuda}")
- 
-# # Storing ID of current CUDA device
-# cuda_id = torch.cuda.current_device()
-# print(f"ID of current CUDA device:{torch.cuda.current_device()}")
-       
-# print(f"Name of current CUDA device:{torch.cuda.get_device_name(cuda_id)}")
-ProcessGloveToPT("input/glove.6B.300d.txt", minLength=3, maxLength=50, alphabetOnly=True, checkDic=True, allowDigits=False, bannedPos=["PRON", "DET", "CCONJ", "SCONJ", "PART", "PUNCT", "SIM", "NUM"])
+
+ProcessGloveToPT("input/glove.6B.100d.txt", minLength=3, maxLength=50, alphabetOnly=True, checkDic=True, allowDigits=False, bannedPos=["PRON", "DET", "CCONJ", "SCONJ", "PART", "PUNCT", "AUX", "INTJ"])
+wordData = torch.load("output/WikipediaWordData.pt")
+print(wordData["vocab"])

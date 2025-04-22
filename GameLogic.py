@@ -7,10 +7,16 @@ import Utility
 DISTANCE_CUTOFF = 0.32 #max distance for word chain
 TERMINAL_RANGE = range(100, 3000)
 LEMMA_INPUT = False
+WORD_CATEGORY = {
+    "banned" :['PRON', 'DET', 'CCONJ', 'SCONJ', 'PART', 'PUNCT'],
+    "halfBanned": ['PROPN', 'NUM'],
+    "allowed" : ['ADJ', 'VERB', 'NOUN']
+}
 
 #persistant game variables
 _nlp = None #natural language processor
 _WordData = None #global word data
+_BannedData = None #global banned word data
 
 #temp game variables
 _TargetWord = "" #current target word
@@ -63,15 +69,18 @@ def ValidateGuess(guess: str) -> tuple[bool, str]:
         not in values ? change word to lemma
             still not in values ? false, error message
     """
-    global _WordData
+    global _WordData, _BannedData
 
     possibleValues = list(_WordData["vocab"].keys())
-    bannedValues = _WordChain #cannot go back on the word chain
+    chainValues = _WordChain #cannot go back on the word chain
 
     guess = guess.strip().lower() #ensure no weird spaces or casing
     
-    if(guess in bannedValues):
+    if(guess in chainValues):
         return False, f"'{guess}' is already in chain!"
+    
+    if(guess in _BannedData.keys()):
+        return False, f"'{guess}' isn't descriptive enough."
     
     if(guess not in possibleValues):
         if(not LEMMA_INPUT):
@@ -95,13 +104,16 @@ def GenerateStartEndWords(minDistance: float = 0.325) -> tuple:
         print("Warning: Word chain should be empty when calling GenerateStartEndWords")
 
     end = Utility.RandomKey(_WordData["vocab"], TERMINAL_RANGE)
+    while _WordData["vocab"][end]["pos"] in WORD_CATEGORY["halfBanned"]:
+        end = Utility.RandomKey(_WordData["vocab"], TERMINAL_RANGE)
+
     start = Utility.RandomKey(_WordData["vocab"], TERMINAL_RANGE)
     K = 0
-    while WordSim(start, end) < minDistance:
+    while  _WordData["vocab"][start]["pos"] in WORD_CATEGORY["halfBanned"] or WordSim(start, end) < minDistance:
         start = Utility.RandomKey(_WordData["vocab"], TERMINAL_RANGE)
         K+=1
         if(K > 10000):
-            print("Warning: Taking too long to determine start and end words, maybe lower minDistance?")
+            print("Warning: Taking too long to determine start and end words, maybe lower minDistance or raise terminal range?")
             break
 
     _WordChain.append(start)
@@ -120,8 +132,9 @@ def RestartGame():
     GenerateStartEndWords(minDistance=0.45)
 
 def InitializeGame():
-    global _WordData, _nlp 
+    global _WordData, _BannedData, _nlp 
 
+    _BannedData = torch.load("output/WikipediaBannedData.pt")
     _WordData = torch.load("output/WikipediaWordData.pt")
 
     # _WordData["vocab"] = StanzaUtility.LemmatarizedDict(_WordData["vocab"]) #get lemma only
@@ -164,11 +177,20 @@ def InitializeGame():
     
 
 """
-PROPN - No, because I feel like things like "joseph" makes no sense
+fully banned:
 PRON - No, things like you, he, them - not interesting
+DET
+CCONJ
+SCONJ
+PART
+PUNCT
+
+half banned:
+PROPN - No, because I feel like things like "joseph" makes no sense
+NUM - No
+
+allowed:
 ADJ - Yeah
 VERB - Yeah
 NOUN - Yeah
-NUM - No
-Anything else?: No
 """
