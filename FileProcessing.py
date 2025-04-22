@@ -40,6 +40,8 @@ def ProcessGloveToPT(path: str,
             unitTime = sinceStart/i
             print(f"{i} out of {len(lines)} processed. \n {bannedIteration} banned\n {wordIteration} allowed. {sinceStart} seconds since start, {time.time() - lastTime} for last 1k. Est remaining: {unitTime*(len(lines)-i)} seconds")
             lastTime = time.time() 
+            torch.save(bannedWordData, "output/WikipediaBannedData.pt")
+            torch.save(wordData, "output/WikipediaWordData.pt")
 
         things = line.split(" ")
         word = str(things[0])
@@ -59,22 +61,16 @@ def ProcessGloveToPT(path: str,
         isProperNoun = False
         firstWord = ""
         if(checkDic):
-            if(not wordDic.check(word)): #not in dictionary
-                doc = nlp(word)
-                firstWord = list(doc.iter_words())[0]
-                if(firstWord.pos != "PROPN"):
-                    barrier |= True
-                else:
-                    isProperNoun = True
+            if(not wordDic.check(word)): #not in dictionary\
+                barrier |= True
         if(barrier): continue
 
         #nlp barrier
-        if(not isProperNoun):
-            doc = nlp(word)
-            firstWord = list(doc.iter_words())[0]
-            if(firstWord.pos == "AUX" or firstWord.pos == "INTJ"):
-                doc = nlp(f"the {word}")
-                firstWord = list(doc.iter_words())[1]
+        doc = nlp(word)
+        firstWord = list(doc.iter_words())[0]
+        if(firstWord.pos == "AUX" or firstWord.pos == "INTJ"):
+            doc = nlp(f"the {word}")
+            firstWord = list(doc.iter_words())[1]
 
         # print(f"{word} {firstWord.text}: {firstWord.pos}")
         vector = torch.tensor([float(things[i]) for i in range(1, len(things))])

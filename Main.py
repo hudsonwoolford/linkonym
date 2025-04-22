@@ -87,7 +87,8 @@ if(__name__ == "__main__"):
 
     #start of UI
     ui.dark_mode().enable()
-    
+    ui.add_head_html('<style>body { overflow: hidden; }</style>') #disable scrolling
+
     #winning dialogue setup
     _WinDialog = ui.dialog()
     _WinDialog.close()
@@ -105,7 +106,7 @@ if(__name__ == "__main__"):
             ui.label("""*Some words may seem obviously related but have a high distance.
                       The algorithm determines similarity based upon similar contexts, 
                      not necessarily similar meaning""").style('color: #777777')
-
+            
     #header
     with ui.header().style('background-color: #222222').style('font-size: 24').classes('h-16 font-weight-bold'):
         with ui.row().classes('justify-between items-center h-full w-full'):
@@ -114,7 +115,7 @@ if(__name__ == "__main__"):
                 ui.button(icon='r_info', on_click=lambda e: infoDialogue.open())  
                 
     #show start and target
-    with ui.column().classes('w-full h-full justify-center items-center'):
+    with ui.column().classes('w-full h-full items-center'):
         StartTargetCards()
         
         #word box
@@ -122,9 +123,10 @@ if(__name__ == "__main__"):
         inputText.on('keydown', lambda e: GuessInput(inputText) if e.args['key'] == "Enter" else None)
 
         #word chain scroll area
-        with ui.scroll_area().classes('border rounded w-96 h-512 gap-2') as scrollArea:
-            _ChainScrollArea = scrollArea
-            WordChain()
+        with ui.element().classes("h-screen"):
+            with ui.scroll_area().style("height: 60%").classes('border rounded w-96 gap-2') as scrollArea:
+                _ChainScrollArea = scrollArea
+                WordChain()
     
     
 ui.run(reload=False) #dont use reload (watch files) because leads to errors

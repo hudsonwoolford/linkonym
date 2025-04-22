@@ -4,8 +4,8 @@ import StanzaUtility
 import json
 import Utility
 
-DISTANCE_CUTOFF = 0.32 #max distance for word chain
-TERMINAL_RANGE = range(100, 3000)
+DISTANCE_CUTOFF = 0.4 #max distance for word chain
+TERMINAL_RANGE = range(100, 10000)
 LEMMA_INPUT = False
 WORD_CATEGORY = {
     "banned" :['PRON', 'DET', 'CCONJ', 'SCONJ', 'PART', 'PUNCT'],
@@ -39,6 +39,9 @@ def WordTensor(word: str):
     global _WordData
 
     return _WordData["emb"][_WordData["vocab"][word]["id"]]
+
+def ClosestWords():
+    pass
 
 def WordSim(w1: str, w2: str, roundDigits: int = 5):
     return round(TensorCosSimilarity(WordTensor(w1), WordTensor(w2)), roundDigits)
@@ -129,13 +132,13 @@ def RestartGame():
 
     _TargetWord = ""
     _WordChain = []
-    GenerateStartEndWords(minDistance=0.45)
+    GenerateStartEndWords(minDistance=0.5)
 
 def InitializeGame():
     global _WordData, _BannedData, _nlp 
 
-    _BannedData = torch.load("output/WikipediaBannedData.pt")
-    _WordData = torch.load("output/WikipediaWordData.pt")
+    _BannedData = torch.load("backups/WikipediaBannedData.pt")
+    _WordData = torch.load("backups/WikipediaWordData.pt")
 
     # _WordData["vocab"] = StanzaUtility.LemmatarizedDict(_WordData["vocab"]) #get lemma only
 
