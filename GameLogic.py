@@ -4,11 +4,11 @@ import StanzaUtility
 import json
 import Utility
 
-DISTANCE_CUTOFF = 0.4 #max distance for word chain
+DISTANCE_CUTOFF = 0.325 #max distance for word chain
 TERMINAL_RANGE = range(100, 10000)
 LEMMA_INPUT = False
 WORD_CATEGORY = {
-    "banned" :['PRON', 'DET', 'CCONJ', 'SCONJ', 'PART', 'PUNCT'],
+    "banned" :["PRON", "DET", "CCONJ", "SCONJ", "PART", "PUNCT", "AUX", "INTJ"],
     "halfBanned": ['PROPN', 'NUM'],
     "allowed" : ['ADJ', 'VERB', 'NOUN']
 }
@@ -72,9 +72,9 @@ def GuessWord(validatedGuess: str) -> tuple[bool, str]:
         return False, f"Failed to chain '{validatedGuess}' ({round(dist, 3)} is too far)"
     
 
-def ValidateGuess(guess: str) -> tuple[bool, str]:
+def ValidateGuess(guess: str) -> tuple[bool, str, str]:
     """
-    Checks a guess inputted by user and returns [valid(bool), feedbackMessage(str)]:
+    Checks a guess inputted by user and returns [valid(bool), feedbackMessage(str), modifiedGuess(str)]:
         banned ? false, error message
         not in values ? change word to lemma
             still not in values ? false, error message
@@ -85,24 +85,27 @@ def ValidateGuess(guess: str) -> tuple[bool, str]:
     chainValues = _WordChain #cannot go back on the word chain
 
     guess = guess.strip().lower() #ensure no weird spaces or casing
-    
-    if(guess in chainValues):
-        return False, f"'{guess}' is already in chain!"
-    
-    if(guess in _BannedData.keys()):
-        return False, f"'{guess}' isn't descriptive enough."
-    
-    if(guess not in possibleValues):
-        if(not LEMMA_INPUT):
-            return False, "I don't know that word!"
-        prevGuess = guess
-        guess = StanzaUtility.LemmaWord(guess, _nlp)
-        if(guess not in possibleValues):
-            return False, "I dont know that word!"
+    if(guess in possibleValues):
+        guess = RemoveFeatureSuffix(guess, "Number=Plur", "s") #make plur sing
+        guess = RemoveFeatureSuffix(guess, "Tense=Past", "ed") #make past present
+        if(guess in chainValues):
+            return False, f"'{guess}' is already in chain!", guess
+    else:
+        if(guess in _BannedData.keys()):
+            return False, f"'{guess}' isn't descriptive enough.", guess
         else:
-            print(f"Found {guess} by using lemma of {prevGuess}")
+            return False, "I don't know that word!", guess
+
         
-    return True, f"Guessed '{guess}.'"
+    return True, f"Guessed '{guess}.'", guess
+
+def RemoveFeatureSuffix(word: str, feat: str, suffix: str):
+    if(feat in str(_WordData["vocab"][word]["feats"])):
+        noSWord = word.removesuffix(suffix)
+        if(noSWord in _WordData["vocab"].keys()):
+            word = noSWord
+    
+    return word
     
 def GenerateStartEndWords(minDistance: float = 0.325) -> tuple:
     """
@@ -125,6 +128,11 @@ def GenerateStartEndWords(minDistance: float = 0.325) -> tuple:
         if(K > 10000):
             print("Warning: Taking too long to determine start and end words, maybe lower minDistance or raise terminal range?")
             break
+    
+    start = RemoveFeatureSuffix(start, "Number=Plur", "s") #make plur sing
+    start = RemoveFeatureSuffix(start, "Tense=Past", "ed") #make past present
+    end = RemoveFeatureSuffix(end, "Number=Plur", "s") #make plur sing
+    end = RemoveFeatureSuffix(end, "Tense=Past", "ed") #make past present
 
     _WordChain.append(start)
     _StartWord = start
