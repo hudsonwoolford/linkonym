@@ -25,13 +25,13 @@ def GuessInput(inputBox: ui.input):
 
         if(valid):
             WordChain.refresh()
-            ui.notify(message, type='positive', timeout=1500, position='top')
+            ui.notify(message, type='positive', timeout=1500, position='bottom')
             if(guess == GameLogic._TargetWord):
                 WinDialog(_WinDialog)
         else:
-            ui.notify(message, type='warning', timeout=1500, position='top')
+            ui.notify(message, type='warning', timeout=1500, position='bottom')
     else:
-        ui.notify(message, type='negative', timeout=1500, position='top')
+        ui.notify(message, type='negative', timeout=1500, position='bottom')
 
     #reset and refocus box
     inputBox.value = ""
@@ -109,10 +109,10 @@ if(__name__ == "__main__"):
             
     #header
     with ui.header().style('background-color: #222222').style('font-size: 24').classes('h-16 font-weight-bold'):
-        with ui.row().classes('justify-between items-center h-full w-full'):
+        with ui.row().classes('items-center h-full w-full'):
+                ui.label('Linkedle').style('font-size: 250%; font-weight: bold').classes('absolute-center')
                 ui.button(icon='r_refresh', on_click=lambda e: RestartBtn())
-                ui.label('Linkedle').style('font-size: 250%; font-weight: bold')
-                ui.button(icon='r_info', on_click=lambda e: infoDialogue.open())  
+                ui.button(icon='r_info', on_click=lambda e: infoDialogue.open())
                 
     #show start and target
     with ui.column().classes('w-full h-full items-center'):

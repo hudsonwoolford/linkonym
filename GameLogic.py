@@ -40,8 +40,15 @@ def WordTensor(word: str):
 
     return _WordData["emb"][_WordData["vocab"][word]["id"]]
 
-def ClosestWords():
-    pass
+def ClosestWords(w: str, amount: int = 10) -> list:
+    if(w not in _WordData["vocab"].keys()): return None
+
+    distances = []
+    for word in _WordData["vocab"].keys():
+        distances.append((word, WordSim(w, word, 5)))
+    
+    distances.sort(key=lambda x: x[1])
+    return distances[:amount]
 
 def WordSim(w1: str, w2: str, roundDigits: int = 5):
     return round(TensorCosSimilarity(WordTensor(w1), WordTensor(w2)), roundDigits)
@@ -137,8 +144,8 @@ def RestartGame():
 def InitializeGame():
     global _WordData, _BannedData, _nlp 
 
-    _BannedData = torch.load("backups/WikipediaBannedData.pt")
-    _WordData = torch.load("backups/WikipediaWordData.pt")
+    _BannedData = torch.load("output/WikipediaBannedData.pt")
+    _WordData = torch.load("output/WikipediaWordData.pt")
 
     # _WordData["vocab"] = StanzaUtility.LemmatarizedDict(_WordData["vocab"]) #get lemma only
 
@@ -148,6 +155,10 @@ def InitializeGame():
         _nlp = stanza.Pipeline(lang='en', processors=processors)
 
     RestartGame()
+
+# InitializeGame()
+# while True:
+#     print(ClosestWords(input("Word: "), amount=50))
 
 # InitializeGame()
 # print(ValidateGuess("fire"))

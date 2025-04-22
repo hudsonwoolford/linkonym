@@ -4,6 +4,56 @@ import stanza
 import time
 
 
+def AddWord(embedsPath: str, appendPath: str, appendWord: str):
+    appendWord = appendWord.lower()
+
+    f = open(embedsPath, "r", encoding="utf-8")
+    content = f.read()
+    f.close()
+
+    lines = content.split("\n")
+
+    processors = "tokenize, mwt, pos, lemma" #processors required for lemmatarization and noun identification
+    nlp = stanza.Pipeline(lang='en', processors=processors, device='cuda', download_method=None)
+
+    wordData = torch.load(appendPath)
+
+    for line in lines:
+        things = line.split(" ")
+        firstWord = things[0]
+
+        if(firstWord == appendWord):
+            firstWord = list(nlp(appendWord).iter_words())[0]
+            wordData["vocab"][appendWord] = {
+                "id" : len(wordData["vocab"].keys()),
+                "pos" : firstWord.pos,
+                "lemma" : firstWord.lemma,
+                "feats" : firstWord.feats
+            }
+            vector = torch.tensor([float(things[i]) for i in range(1, len(things))])
+            wordData["emb"] = torch.vstack((wordData["emb"], vector))
+    
+    torch.save(wordData, appendPath)
+
+def TransferPosWords(fromPath: str, toPath: str, posFilter: list = None):
+    fromData = torch.load(fromPath)
+    toData = torch.load(toPath)
+
+    deleteWords = []
+    addTensors = []
+    for w in fromData["vocab"].keys():
+        if(fromData["vocab"][w]["pos"] in posFilter):
+            toData["vocab"][w] = fromData["vocab"][w] #add dictionary entry in new
+            toData["vocab"][w]["id"] = len(toData["emb"]) + len(addTensors)
+            addTensors.append(fromData["emb"][fromData["vocab"][w]["id"]])
+            deleteWords.append(w)
+
+    for w in deleteWords:
+        del fromData["vocab"][w] #delete dictionary entry in old
+    
+    torch.save(fromData, fromPath)
+    torch.save(toData, toPath)
+
 def ProcessGloveToPT(path: str, 
                      minLength: int = 3, 
                      maxLength: int = 50, 
@@ -100,6 +150,8 @@ def ProcessGloveToPT(path: str,
     torch.save(wordData, "output/WikipediaWordData.pt")
 
 
-ProcessGloveToPT("input/glove.6B.100d.txt", minLength=3, maxLength=50, alphabetOnly=True, checkDic=True, allowDigits=False, bannedPos=["PRON", "DET", "CCONJ", "SCONJ", "PART", "PUNCT", "AUX", "INTJ"])
-wordData = torch.load("output/WikipediaWordData.pt")
-print(wordData["vocab"])
+# ProcessGloveToPT("input/glove.6B.100d.txt", minLength=3, maxLength=50, alphabetOnly=True, checkDic=True, allowDigits=False, bannedPos=["PRON", "DET", "CCONJ", "SCONJ", "PART", "PUNCT", "AUX", "INTJ"])
+# wordData = torch.load("output/WikipediaWordData.pt")
+# print(wordData["vocab"])
+# AddWord("input/glove.6B.100d.txt", "output/WikipediaWordData.pt", "america")
+TransferPosWords("output/WikipediaWordData.pt", "output/WikipediaBannedData.pt", posFilter=["ADV", "ADP"])
