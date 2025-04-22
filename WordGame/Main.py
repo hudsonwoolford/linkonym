@@ -6,6 +6,7 @@ import asyncio
 
 #UI variables
 _WinDialog: ui.dialog = None
+_ChainScrollArea: ui.scroll_area = None
 
 #UI functions
 def RestartBtn():
@@ -22,13 +23,13 @@ def GuessInput(inputBox: ui.input):
 
         if(valid):
             WordChain.refresh()
-            ui.notify(message, type='positive', timeout=1000, position='top')
+            ui.notify(message, type='positive', timeout=1500, position='top')
             if(guess == GameLogic._TargetWord):
                 WinDialog(_WinDialog)
         else:
-            ui.notify(message, type='warning', timeout=1000, position='top')
+            ui.notify(message, type='warning', timeout=1500, position='top')
     else:
-        ui.notify(message, type='negative', timeout=1000, position='top')
+        ui.notify(message, type='negative', timeout=1500, position='top')
 
     inputBox.value = ""
     ui.run_javascript(f"document.getElementById('{inputBox.id}').focus()")
@@ -45,6 +46,9 @@ def WinDialog(dialog: ui.dialog):
         ui.button(icon='r_refresh', on_click=lambda e: (dialog.close(), RestartBtn()))
     dialog.open()
 
+def InfoDialog(dialog: ui.dialog):
+    dialog.open()
+
 
 @ui.refreshable
 def WordChain():
@@ -56,6 +60,8 @@ def WordChain():
                 ui.label(f'{i+1}').style('color: #555555')
                 ui.label(word).style('font-weight: bold')
                 ui.label(f'({distToTarget}) to {GameLogic._TargetWord}').style('color: #777777').classes('ml-auto')
+    
+    _ChainScrollArea.scroll_to(percent=100, duration=0.5)
     
 @ui.refreshable 
 def StartTargetCards():
@@ -76,10 +82,27 @@ if(__name__ == "__main__"):
     _WinDialog = ui.dialog()
     _WinDialog.close()
 
-    with ui.header().style('background-color: #222222').style('font-size: 24').classes('h-16 font-weight-bold'):
-        ui.button(icon='r_refresh', on_click=lambda e: RestartBtn()).classes('flat')
-        ui.label('Linkedle').style('font-size: 250%; font-weight: bold').classes('absolute-center')
+    #info dialogue setup
+    infoDialogue = ui.dialog()
+    with infoDialogue,  ui.card().classes('w-96 h-108 no-shadow border-[1px] items-center justify-center'):
+        with ui.row().classes('justify-between items-center'):
+            ui.icon('r_info')
+            ui.label("Info").style("font-weight: bold; font-size: 150%")
+        with ui.expansion(text="How do I play?").classes('w-full'):
+            ui.label(f"""The goal is to create a chain of related words to reach a 'target' word. 
+                     The start and ending positions are determined randomly, and linked words must be a 
+                     distance of {GameLogic.DISTANCE_CUTOFF} from the previous.""")
+            ui.label("""*Some words may seem obviously related but have a high distance.
+                      The algorithm determines similarity based upon similar contexts, 
+                     not necessarily similar meaning""").style('color: #777777')
 
+    #header
+    with ui.header().style('background-color: #222222').style('font-size: 24').classes('h-16 font-weight-bold'):
+        with ui.row().classes('justify-between items-center h-full w-full'):
+                ui.button(icon='r_refresh', on_click=lambda e: RestartBtn())
+                ui.label('Linkedle').style('font-size: 250%; font-weight: bold')
+                ui.button(icon='r_info', on_click=lambda e: infoDialogue.open())  
+                
     #show start and target
     with ui.column().classes('w-full h-full justify-center items-center'):
         StartTargetCards()
@@ -88,7 +111,8 @@ if(__name__ == "__main__"):
         inputText = ui.input(placeholder="chain a word...").props('outlined dense autocomplete=off autocapitalize=off').classes('w-96')
         inputText.on('keydown', lambda e: GuessInput(inputText) if e.args['key'] == "Enter" else None)
 
-        with ui.scroll_area().classes('border rounded w-96 h-256 gap-3') as scrollArea:
+        with ui.scroll_area().classes('border rounded w-96 h-256 gap-2') as scrollArea:
+            _ChainScrollArea = scrollArea
             WordChain()
     
     
