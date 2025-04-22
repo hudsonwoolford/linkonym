@@ -36,6 +36,7 @@ def GuessInput(inputBox: ui.input):
             ui.notify(message, type='positive', timeout=1500, position='bottom', badgeColor='positive', badgeTextColor='white')
             if(guess == GameLogic._TargetWord):
                 WinDialog(_WinDialog)
+                
         else:
             ui.notify(message, type='warning', timeout=1500, position='bottom', badgeColor='warning', badgeTextColor='black')
     else:
@@ -48,15 +49,21 @@ def GuessInput(inputBox: ui.input):
 #dialog card when you win the game
 def WinDialog(dialog: ui.dialog):
     #set all parameters
-    with dialog, ui.card().style(BORDER_SETTINGS).classes(f'w-96 h-108 no-shadow items-center justify-center'):
+    with dialog, ui.card().style(BORDER_SETTINGS).classes(f'w-64 h-108 no-shadow items-center justify-center'):
         ui.label("You won!").style("font-weight: bold; font-size: 150%")
         ui.label(f"Score: {len(GameLogic._WordChain)-1} links").style('color: #777777')
         ui.label(f"Chain:")
-        with ui.scroll_area().classes('border rounded w-full'):
-            with ui.timeline(side='right', layout='dense').classes('gap-0'):
-                for w in GameLogic._WordChain:
-                    ui.timeline_entry(w, subtitle=GameLogic.WordSim(w, GameLogic._TargetWord, 3)).classes("py-0")
-        ui.button(icon='r_refresh', on_click=lambda e: (dialog.close(), RestartBtn()))
+        with ui.scroll_area().classes('border rounded w-full') as scrollArea:
+            with ui.timeline(side='right', layout='dense').classes('gap-0 p-0 h-full'):
+                for i, w in enumerate(GameLogic._WordChain):
+                    GameLogic.WordSim(w, GameLogic._TargetWord, 3)
+                    ui.timeline_entry("",subtitle=w).style('height: 4rem').classes('p-0')
+                scrollArea.scroll_to(percent=100, duration=1)
+
+        with ui.row().style('width: 100%; height: 100%').classes('justify-center'):
+            ui.button(icon='sym_r_refresh', on_click=lambda e: (dialog.close(), RestartBtn()))
+            ui.button(icon='sym_r_share', on_click=lambda e: (dialog.close(), RestartBtn()))
+
         
     dialog.open() #show card
 

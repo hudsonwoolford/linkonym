@@ -87,7 +87,7 @@ def ValidateGuess(guess: str) -> tuple[bool, str, str]:
     guess = guess.strip().lower() #ensure no weird spaces or casing
     if(guess in possibleValues):
         guess = RemoveFeatureSuffix(guess, "Number=Plur", "s") #make plur sing
-        guess = RemoveFeatureSuffix(guess, "Tense=Past", "ed") #make past present
+        guess = RemoveFeatureSuffix(guess, "Tense=Past", ["ed","d"]) #make past present
         if(guess in chainValues):
             return False, f"'{guess}' is already in chain!", guess
     else:
@@ -99,9 +99,16 @@ def ValidateGuess(guess: str) -> tuple[bool, str, str]:
         
     return True, f"Guessed '{guess}.'", guess
 
-def RemoveFeatureSuffix(word: str, feat: str, suffix: str):
+def RemoveFeatureSuffix(word: str, feat: str, suffixes: list):
+    if(isinstance(suffixes, str)):
+        suffixes = [suffixes]
+
     if(feat in str(_WordData["vocab"][word]["feats"])):
-        noSWord = word.removesuffix(suffix)
+        noSWord = word
+        for suf in suffixes:
+            if(word[-len(suf):]==suf):
+                noSWord = word.removesuffix(suf)
+
         if(noSWord in _WordData["vocab"].keys()):
             word = noSWord
     
@@ -120,19 +127,23 @@ def GenerateStartEndWords(minDistance: float = 0.325) -> tuple:
     while _WordData["vocab"][end]["pos"] in WORD_CATEGORY["halfBanned"]:
         end = Utility.RandomKey(_WordData["vocab"], TERMINAL_RANGE)
 
+    end = RemoveFeatureSuffix(end, "Number=Plur", "s") #make plur sing
+    end = RemoveFeatureSuffix(end, "Tense=Past", ["ed","d"]) #make past present
+
     start = Utility.RandomKey(_WordData["vocab"], TERMINAL_RANGE)
+    start = RemoveFeatureSuffix(start, "Number=Plur", "s") #make plur sing
+    start = RemoveFeatureSuffix(start, "Tense=Past", ["ed","d"]) #make past present
     K = 0
     while  _WordData["vocab"][start]["pos"] in WORD_CATEGORY["halfBanned"] or WordSim(start, end) < minDistance:
         start = Utility.RandomKey(_WordData["vocab"], TERMINAL_RANGE)
+        start = RemoveFeatureSuffix(start, "Number=Plur", "s") #make plur sing
+        start = RemoveFeatureSuffix(start, "Tense=Past", ["ed","d"]) #make past present
         K+=1
         if(K > 10000):
             print("Warning: Taking too long to determine start and end words, maybe lower minDistance or raise terminal range?")
             break
     
-    start = RemoveFeatureSuffix(start, "Number=Plur", "s") #make plur sing
-    start = RemoveFeatureSuffix(start, "Tense=Past", "ed") #make past present
-    end = RemoveFeatureSuffix(end, "Number=Plur", "s") #make plur sing
-    end = RemoveFeatureSuffix(end, "Tense=Past", "ed") #make past present
+
 
     _WordChain.append(start)
     _StartWord = start
