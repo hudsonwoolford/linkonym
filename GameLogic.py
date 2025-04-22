@@ -91,7 +91,7 @@ def ValidateGuess(guess: str) -> tuple[bool, str, str]:
         if(guess in chainValues):
             return False, f"'{guess}' is already in chain!", guess
     else:
-        if(guess in _BannedData.keys()):
+        if(guess in _BannedData["vocab"].keys()):
             return False, f"'{guess}' isn't descriptive enough.", guess
         else:
             return False, "I don't know that word!", guess

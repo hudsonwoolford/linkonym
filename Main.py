@@ -12,9 +12,9 @@ PAGES = {
     2 : "Themed"
 }
 BORDER_COLOR = '#AAAAAA'
-BORDER_WIDTH = '[1px]'
+BORDER_WIDTH = '1px'
 BORDER_RADIUS = '10px'
-BORDER_SETTINGS = ''
+BORDER_SETTINGS = f'border-color: {BORDER_COLOR}; border-width: {BORDER_WIDTH}; border-radius: {BORDER_RADIUS}'
 
 #UI functions
 def RestartBtn():
@@ -48,14 +48,14 @@ def GuessInput(inputBox: ui.input):
 #dialog card when you win the game
 def WinDialog(dialog: ui.dialog):
     #set all parameters
-    with dialog, ui.card().style(f'border-radius: {BORDER_RADIUS}; border-color: {BORDER_COLOR}').classes(f'w-96 h-108 no-shadow border-{BORDER_WIDTH} items-center justify-center'):
+    with dialog, ui.card().style(BORDER_SETTINGS).classes(f'w-96 h-108 no-shadow items-center justify-center'):
         ui.label("You won!").style("font-weight: bold; font-size: 150%")
         ui.label(f"Score: {len(GameLogic._WordChain)-1} links").style('color: #777777')
         ui.label(f"Chain:")
         with ui.scroll_area().classes('border rounded w-full'):
-            with ui.timeline(side='right', layout='dense'):
+            with ui.timeline(side='right', layout='dense').classes('gap-0'):
                 for w in GameLogic._WordChain:
-                    ui.timeline_entry(w, )
+                    ui.timeline_entry(w, subtitle=GameLogic.WordSim(w, GameLogic._TargetWord, 3)).classes("py-0")
         ui.button(icon='r_refresh', on_click=lambda e: (dialog.close(), RestartBtn()))
         
     dialog.open() #show card
@@ -68,13 +68,13 @@ def InfoDialog(dialog: ui.dialog):
 @ui.refreshable
 def WordChain():
     #create a card for each word
-    with ui.column().classes("w-full gap-1"):
+    with ui.column().classes("w-full gap-2"):
         for i, word in enumerate(GameLogic._WordChain):
             chainMessage = f"({GameLogic.WordSim(word, GameLogic._TargetWord, 3)}) to '{GameLogic._TargetWord}'"
             # if(not i == len(GameLogic._WordChain)-1):
             #     chainMessage = f"({GameLogic.WordSim(word, GameLogic._WordChain[i+1], 3)})"
 
-            with ui.card(align_items='left').style(f"height: 3rem; border-color: {BORDER_COLOR}; border-radius: {BORDER_RADIUS}").classes(f'py-0 border-{BORDER_WIDTH} no-shadow w-full items-center'):
+            with ui.card(align_items='left').style(f"height: 3rem; {BORDER_SETTINGS}").classes(f'py-0 no-shadow w-full items-center'):
                 with ui.row().classes('gap-4 h-full w-full items-center'):
                     ui.label(f'{i+1}').style('color: #555555')
                     ui.label(word).style('font-weight: normal')
@@ -92,10 +92,10 @@ def WordChain():
 def StartTargetCards():
     #create cards for start and target
     with ui.row().classes('gap-4 items-center'):
-            with ui.card(align_items='center').style(f"height: 3rem; width: 10rem; border-color: {BORDER_COLOR}; border-radius: {BORDER_RADIUS}").classes(f'no-shadow border-{BORDER_WIDTH}'):
+            with ui.card(align_items='center').style(f"height: 3rem; width: 10rem; {BORDER_SETTINGS}").classes(f'no-shadow'):
                 ui.label(GameLogic._StartWord).style('font-weight: normal').classes('absolute-center')
             ui.icon("sym_r_keyboard_double_arrow_right", size="2rem", color=BORDER_COLOR)
-            with ui.card(align_items='center').style(f"height: 3rem; width: 10rem; border-color: {BORDER_COLOR}; border-radius: {BORDER_RADIUS}").classes(f'w-48 no-shadow border-{BORDER_WIDTH}'):
+            with ui.card(align_items='center').style(f"height: 3rem; width: 10rem; {BORDER_SETTINGS}").classes(f'w-48 no-shadow'):
                 ui.label(GameLogic._TargetWord).style('font-weight: normal').classes('absolute-center')
 @ui.refreshable
 def RenderPage(page: int):
@@ -109,12 +109,12 @@ def RenderPage(page: int):
             StartTargetCards()
 
             #word box
-            inputText = ui.input(placeholder="chain a word...").style(f'border-radius: {BORDER_RADIUS}; border-color: {BORDER_COLOR}; border-width: {BORDER_WIDTH}').props('autocomplete=off autocapitalize=off').classes('w-96')
+            inputText = ui.input(placeholder="chain a word...").style(f'').props('autocomplete=off autocapitalize=off').classes('w-96')
             inputText.on('keydown', lambda e: GuessInput(inputText) if e.args['key'] == "Enter" else None)
 
             #word chain scroll area
             with ui.element().classes("h-screen"):
-                with ui.scroll_area().style(f"height: 60%; border-color: {BORDER_COLOR}; border-radius: {BORDER_RADIUS}").classes(f'border-{BORDER_WIDTH} rounded w-96') as scrollArea:
+                with ui.scroll_area().style(f"height: 60%; border-color: {BORDER_SETTINGS}").classes(f'rounded w-96 p-0') as scrollArea:
                     _ChainScrollArea = scrollArea
                     WordChain()
 
@@ -132,7 +132,7 @@ if(__name__ == "__main__"):
 
     #info dialogue setup
     infoDialogue = ui.dialog()
-    with infoDialogue,  ui.card().classes('w-96 h-108 no-shadow border-[5px] items-center justify-center'):
+    with infoDialogue, ui.card().style(BORDER_SETTINGS).classes('w-96 h-108 no-shadow border-[5px] items-center justify-center'):
         with ui.row().classes('justify-between items-center'):
             ui.icon('sym_r_info', size="150%")
             ui.label("Info").style("font-weight: bold; font-size: 150%")
