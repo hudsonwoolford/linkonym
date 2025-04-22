@@ -15,11 +15,13 @@ def RestartBtn():
     WordChain.refresh()
     _WinDialog.clear()
 
+#when user inputs guess from textbox
 def GuessInput(inputBox: ui.input):
     guess = inputBox.value
-    valid, message = GameLogic.ValidateGuess(guess)
+    
+    valid, message = GameLogic.ValidateGuess(guess) #if guess is valid/(if it is in possible values and not banned)
     if(valid):
-        valid, message = GameLogic.GuessWord(guess)
+        valid, message = GameLogic.GuessWord(guess) #get result of guessing the word, valid if it is within distance
 
         if(valid):
             WordChain.refresh()
@@ -31,11 +33,14 @@ def GuessInput(inputBox: ui.input):
     else:
         ui.notify(message, type='negative', timeout=1500, position='top')
 
+    #reset and refocus box
     inputBox.value = ""
     ui.run_javascript(f"document.getElementById('{inputBox.id}').focus()")
 
+#dialog card when you win the game
 def WinDialog(dialog: ui.dialog):
-    with dialog, ui.card().classes('w-64 h-108 no-shadow border-[1px] items-center justify-center'):
+    #set all parameters
+    with dialog, ui.card().classes('w-96 h-108 no-shadow border-[1px] items-center justify-center'):
         ui.label("You won!").style("font-weight: bold; font-size: 150%")
         ui.label(f"Score: {len(GameLogic._WordChain)-1} links").style('color: #777777')
         ui.label(f"Chain:")
@@ -44,7 +49,9 @@ def WinDialog(dialog: ui.dialog):
                 for w in GameLogic._WordChain:
                     ui.label(w)
         ui.button(icon='r_refresh', on_click=lambda e: (dialog.close(), RestartBtn()))
-    dialog.open()
+        
+    dialog.open() #show card
+
 
 def InfoDialog(dialog: ui.dialog):
     dialog.open()
@@ -52,6 +59,7 @@ def InfoDialog(dialog: ui.dialog):
 
 @ui.refreshable
 def WordChain():
+    #create a card for each word
     for i, word in enumerate(GameLogic._WordChain):
         distToTarget = GameLogic.WordSim(word, GameLogic._TargetWord, 3)
 
@@ -61,10 +69,12 @@ def WordChain():
                 ui.label(word).style('font-weight: bold')
                 ui.label(f'({distToTarget}) to {GameLogic._TargetWord}').style('color: #777777').classes('ml-auto')
     
+    #scroll to end of chain
     _ChainScrollArea.scroll_to(percent=100, duration=0.5)
     
 @ui.refreshable 
 def StartTargetCards():
+    #create cards for start and target
     with ui.row().classes('gap-0'):
             with ui.card(align_items='center').classes('w-48 no-shadow border-[1px]'):
                 ui.label(GameLogic._StartWord)
@@ -111,10 +121,11 @@ if(__name__ == "__main__"):
         inputText = ui.input(placeholder="chain a word...").props('outlined dense autocomplete=off autocapitalize=off').classes('w-96')
         inputText.on('keydown', lambda e: GuessInput(inputText) if e.args['key'] == "Enter" else None)
 
-        with ui.scroll_area().classes('border rounded w-96 h-256 gap-2') as scrollArea:
+        #word chain scroll area
+        with ui.scroll_area().classes('border rounded w-96 h-512 gap-2') as scrollArea:
             _ChainScrollArea = scrollArea
             WordChain()
     
     
-ui.run(reload=False)
+ui.run(reload=False) #dont use reload (watch files) because leads to errors
 

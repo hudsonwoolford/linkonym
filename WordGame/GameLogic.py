@@ -2,10 +2,6 @@ import stanza
 import torch
 import StanzaUtility
 import json
-import enchant
-import random
-import FileManager
-import matplotlib.pyplot as plt
 import Utility
 
 DISTANCE_CUTOFF = 0.32 #max distance for word chain
@@ -22,7 +18,7 @@ _StartWord = "" #current start word
 _WordChain = [] #current chain of words
 
 #ensure model is downloaded
-# stanza.download(lang)
+# stanza.download('en')
 
 
 def WordListToInfo():
@@ -75,7 +71,7 @@ def ValidateGuess(guess: str) -> tuple[bool, str]:
     guess = guess.strip().lower() #ensure no weird spaces or casing
     
     if(guess in bannedValues):
-        return False, f"'{guess}' has been banned!"
+        return False, f"'{guess}' is already in chain!"
     
     if(guess not in possibleValues):
         if(not LEMMA_INPUT):
@@ -114,6 +110,9 @@ def GenerateStartEndWords(minDistance: float = 0.325) -> tuple:
     return start, end
 
 def RestartGame():
+    """
+    Resets local game variables and generates new start and target words
+    """
     global _TargetWord, _WordChain
 
     _TargetWord = ""
@@ -125,9 +124,9 @@ def InitializeGame():
 
     _WordData = torch.load("output/WikipediaWordData.pt")
 
-    _WordData["vocab"] = StanzaUtility.LemmatarizedDict(_WordData["vocab"]) #get lemma only
+    # _WordData["vocab"] = StanzaUtility.LemmatarizedDict(_WordData["vocab"]) #get lemma only
 
-    # #stanza initialization
+    #stanza initialization
     if(LEMMA_INPUT):
         processors = "tokenize, mwt, pos, lemma" #processors required for lemmatarization and noun identification
         _nlp = stanza.Pipeline(lang='en', processors=processors)

@@ -68,10 +68,10 @@ def LemmaWord(word: str, nlp: stanza.pipeline) -> str:
     first = list(doc.iter_words())[0]
     return first.lemma
 
-def LemmatarizedDict(wordInfo: dict):
+def LemmatarizedDict(wordInfo: dict, filter: list = None):
     lemmaDict = {}
     for i, w in enumerate(wordInfo.keys()):
-        lemmaWord = wordInfo[w]["lemma"] 
+        lemmaWord = wordInfo[w]["lemma"]
         if(lemmaWord in wordInfo.keys() and lemmaWord not in lemmaDict.keys()):
             lemmaDict[lemmaWord] = wordInfo[lemmaWord]
     
