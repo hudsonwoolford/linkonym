@@ -4,6 +4,7 @@ import StanzaUtility
 import json
 import Utility
 import random
+import datetime
 
 DISTANCE_CUTOFF = 0.325 #max distance for word chain
 TERMINAL_RANGE = range(100, 10000)
@@ -19,7 +20,7 @@ _WordData = None #global word data
 _BannedData = None #global banned word data
 
 #temp game variables
-_seed = 0
+_Seed = 0
 _TargetWord = "" #current target word
 _StartWord = "" #current start word
 _WordChain = [] #current chain of words
@@ -151,14 +152,19 @@ def GenerateStartEndWords(minDistance: float = 0.325) -> tuple:
     _TargetWord = end
     return start, end
 
-def RestartGame():
+def RestartGame(seed: int = None):
     """
     Resets local game variables and generates new start and target words
     """
-    global _TargetWord, _WordChain
+    global _TargetWord, _WordChain, _Seed
 
     # _seed = random.randint(-5000000, 5000000)
-    # random.seed(_seed)
+    
+    if(seed == None):
+        _Seed = datetime.datetime.now().microsecond + datetime.datetime.now().second + datetime.datetime.now().minute
+    else:
+        _Seed = seed
+    random.seed(_Seed)
 
     _TargetWord = ""
     _WordChain = []

@@ -11,6 +11,9 @@ import Dictionary as WordDictionary
 _WinDialog: ui.dialog = None
 _ChainScrollArea: ui.scroll_area = None
 _EmbedOptionKey: str = "Wikipedia2014" #default embed path
+_Seed: str = "Seed"
+_UseSeed: bool = False
+
 PAGES = {
     1 : "Normal",
     2 : "Themed"
@@ -92,7 +95,7 @@ def ChangeSiteColor(color: str):
             RenderPage.refresh()
 
 def RestartBtn():
-    GameLogic.RestartGame()
+    GameLogic.RestartGame(_Seed if _UseSeed else None)
     StartTargetCards.refresh()
     WordChain.refresh()
     _WinDialog.clear()
@@ -130,7 +133,7 @@ def WinDialog(dialog: ui.dialog):
         ui.label("You won!").style(f"font-weight: bold; font-size: 150%; color: {TEXT_PRIMARY}")
         ui.label(f"Score: {len(GameLogic._WordChain)-1} links").style(f'color: {TEXT_SECONDARY}')
         ui.label(f"Chain:")
-        with ui.scroll_area().style(f'border-color: {BORDER_COLOR}; border-radius: {BORDER_RADIUS}; border-width: 1px').classes('h-full w-full') as scrollArea:
+        with ui.scroll_area().style(f'border-color: {BORDER_COLOR}; border-radius: {BORDER_RADIUS}; border-width: 1px; width: 90%').classes('h-full') as scrollArea:
             with ui.timeline(side='right', layout='dense').classes('gap-0 p-0 h-full'):
                 for i, w in enumerate(GameLogic._WordChain):
                     GameLogic.WordSim(w, GameLogic._TargetWord, 3)
@@ -156,7 +159,7 @@ Here's my word chain from '{GameLogic._StartWord}' to '{GameLogic._TargetWord}':
 
 Score: {len(GameLogic._WordChain)} 🔥
 
-You can play the same seed here: """)
+You can play the same seed here: {GameLogic._Seed}""")
     ui.notify("Copied game to clipboard")
 
 def InfoDialog(dialog: ui.dialog):
@@ -206,7 +209,8 @@ def RenderPage(page: int):
 
     if(PAGES[page] == "Normal"):
         with ui.column().style(f'width: {GAME_WIDTH_VALUE}rem; justify-content: center; padding-top: 1rem').classes('h-full absolute-center'):
-            # ui.chip(f"A max distance of ({GameLogic.DISTANCE_CUTOFF}) can be chained.",icon="sym_r_arrow_forward", on_click=lambda e: ui.notify("Build a chain to the target word")).props("outlined")
+            with ui.element().style('display: flex').classes('w-full justify-center items-center'):
+                ui.chip(f"Chain similar words to get to the target",icon="sym_r_polyline").props("outlined")
 
             #show start and target
             StartTargetCards()
@@ -349,7 +353,12 @@ body {
         with ui.row().classes('w-full justify-between items-center gap-0'):
             slider = ui.slider(min=18, max=100, step=1, on_change=lambda e: RenderPage.refresh(1)).style('width: 60%')
             slider.bind_value(globals(), 'GAME_WIDTH_VALUE')
-            inputBox = ui.input().style('width: 30%').props('outlined dense rounded')
+            ui.input(placeholder="width").style('width: 30%').props('outlined dense rounded')
+        with ui.row().classes('w-full justify-between items-center gap-0'):
+            ui.switch(value=False).bind_value(globals(), '_UseSeed').style('width: 10%')
+            inputBox = ui.input(placeholder="seed input").style('width: 80%').props('outlined dense rounded autocomplete=off autocapitalize=off')
+            inputBox.on('keydown', lambda e: ui.notify(f"Changed seed to: {_Seed}") if e.args['key'] == "Enter" else None)
+            inputBox.bind_value_to(globals(), "_Seed")
             
     #header
     with ui.header().style(f'background-color: {DARK}').style(f'font-size: 24; height: {HEADER_HEIGHT}').classes('py-0 w-screen font-weight-bold'):
