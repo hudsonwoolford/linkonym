@@ -1,9 +1,6 @@
 from nicegui import ui
 import GameLogic
-import time
-import math
 import pyperclip
-import asyncio
 from CustomUI import ToggleButton
 import Dictionary as WordDictionary
 
@@ -95,6 +92,9 @@ def ChangeSiteColor(color: str):
             global PRIMARY
             PRIMARY = color
             ui.colors(primary=PRIMARY, secondary=SECONDARY, accent=ACCENT, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING, dark=DARK, dark_page=DARK_PAGE)
+            ui.run_javascript(f'''
+            document.documentElement.style.setProperty('--selection-color', '{PRIMARY}');
+            ''')
             HeaderRow.refresh()
             RenderPage.refresh()
 
@@ -138,7 +138,7 @@ def WinDialog(dialog: ui.dialog):
         with ui.row().classes('justify-center items-center gap-1.5'):
             ui.icon('sym_r_emoji_events', size="150%", color=TEXT_PRIMARY)
             ui.label("You won!").style(f"color: {TEXT_PRIMARY}; font-weight: bold; font-size: 150%")
-        ui.chip(f"Links: {len(GameLogic._WordChain)-1}", icon='sym_r_link')
+        ui.chip(f"{len(GameLogic._WordChain)-1} links", icon='sym_r_link')
         with ui.scroll_area().style(f'border-color: {BORDER_COLOR}; border-radius: {BORDER_RADIUS}; border-width: 1px; width: 90%').classes('h-full') as scrollArea:
             with ui.timeline(side='right', layout='dense').classes('gap-0 p-0 h-full'):
                 for i, w in enumerate(GameLogic._WordChain):
@@ -309,7 +309,18 @@ body {
     height: 0;
 }
 </style>
+                     
 """)#disable scrolling
+    ui.add_head_html('''
+<style>
+:root {
+  --selection-color:''' + PRIMARY + ''';
+}
+::selection {
+  background: var(--selection-color);
+}
+</style>
+''')
     
     #winning dialogue setup
     _WinDialog = ui.dialog()
@@ -365,8 +376,6 @@ body {
         HeaderRow()
     
     RenderPage(1)
-
-
 
     
 ui.run(reload=False) #dont use reload (watch files) because leads to errors

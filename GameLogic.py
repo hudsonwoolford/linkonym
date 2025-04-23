@@ -1,7 +1,4 @@
-import stanza
 import torch
-import StanzaUtility
-import json
 import Utility
 import random
 import datetime
@@ -27,11 +24,6 @@ _WordChain = [] #current chain of words
 
 #ensure model is downloaded
 # stanza.download('en')
-
-
-def WordListToInfo():
-    wordList = dict(json.load(open("output/WordList.json", 'r', encoding="utf-8")))
-    StanzaUtility.WordInfoJson(wordList["_word2id"], "WordInfo.json", filter = ["VERB", "NOUN", "ADJ"])
 
 def TensorCosSimilarity(t1: torch.Tensor, t2: torch.Tensor) -> float:
     cos = torch.nn.CosineSimilarity(dim=0)
