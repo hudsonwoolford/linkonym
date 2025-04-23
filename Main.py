@@ -22,7 +22,7 @@ TEXT_PRIMARY = 'white'
 TEXT_BLACK = 'black'
 TEXT_SECONDARY = '#777777'
 TEXT_DARK_GREY = '#555555'
-PRIMARY = '#FF00FF'
+PRIMARY = '#FD3DB5'
 # PRIMARY = '#5898d4'
 SECONDARY =  '#26a69a'
 ACCENT = '#9c27b0'
@@ -111,7 +111,7 @@ def GuessInput(inputBox: ui.input):
 def WinDialog(dialog: ui.dialog):
     ##set all parameters
     with dialog, ui.card().style(BORDER_SETTINGS).classes(f'w-64 h-108 no-shadow items-center justify-center'):
-        ui.label("You won!").style(f"font-weight: bold; font-size: 150%; color {TEXT_PRIMARY}")
+        ui.label("You won!").style(f"font-weight: bold; font-size: 150%; color: {TEXT_PRIMARY}")
         ui.label(f"Score: {len(GameLogic._WordChain)-1} links").style(f'color: {TEXT_SECONDARY}')
         ui.label(f"Chain:")
         with ui.scroll_area().classes('border rounded w-full') as scrollArea:
@@ -155,7 +155,7 @@ def WordChain():
             # if(not i == len(GameLogic._WordChain)-1):
             #     chainMessage = f"({GameLogic.WordSim(word, GameLogic._WordChain[i+1], 3)})"
 
-            with ui.card(align_items='left').style(f"background-color: {DARK}; height: 3rem; {BORDER_SETTINGS}").classes(f'py-0 no-shadow w-full items-center'):
+            with ui.card(align_items='left').style(f"height: 3rem; {BORDER_SETTINGS}").classes(f'py-0 no-shadow w-full items-center'):
                 with ui.row().classes('gap-4 h-full w-full items-center'):
                     ui.label(f'{i+1}').style(f'color: {TEXT_SECONDARY}')
                     ui.label(word).style(f'font-weight: normal; color: {TEXT_PRIMARY}')
@@ -167,10 +167,10 @@ def WordChain():
 def StartTargetCards():
     #create cards for start and target
     with ui.row().classes('gap-4 items-center'):
-            with ui.card(align_items='center').style(f"background-color: {DARK}; height: 3rem; width: 10rem; {BORDER_SETTINGS}").classes(f'no-shadow'):
+            with ui.card(align_items='center').style(f"height: 3rem; width: 10rem; {BORDER_SETTINGS}").classes(f'no-shadow'):
                 ui.label(GameLogic._StartWord).style(f'color: {TEXT_PRIMARY}; font-weight: normal').classes('absolute-center')
             ui.icon("sym_r_keyboard_double_arrow_right", size="2rem", color=BORDER_COLOR)
-            with ui.card(align_items='center').style(f"background-color: {DARK}; height: 3rem; width: 10rem; {BORDER_SETTINGS}").classes(f'w-48 no-shadow'):
+            with ui.card(align_items='center').style(f"height: 3rem; width: 10rem; {BORDER_SETTINGS}").classes(f'w-48 no-shadow'):
                 ui.label(GameLogic._TargetWord).style(f'color: {TEXT_PRIMARY}; font-weight: normal').classes('absolute-center')
 
 @ui.refreshable
@@ -184,8 +184,17 @@ def RenderPage(page: int):
             #show start and target
             StartTargetCards()
 
-            #word box
-            inputText = ui.input(placeholder="chain a word...").style(f'').props(f'color: {PRIMARY}; autocomplete=off; autocapitalize=off; input-style="color: {TEXT_SECONDARY}"').classes('w-96')
+#             #word box
+#             ui.add_body_html("""
+# <div width=100%>
+#     <q-input color="purple-12" v-model="text" label="Label">
+#         <template v-slot:prepend>
+#             <q-icon name="event" />
+#         </template>
+#     </q-input>
+# </div>
+# """)
+            inputText = ui.input(placeholder="chain a word...").props(f'autocomplete=off; autocapitalize=off; input-style="color: {BORDER_COLOR}"').classes(f'color-red-300 w-96')
             inputText.on('keydown', lambda e: GuessInput(inputText) if e.args['key'] == "Enter" else None)
 
             #word chain scroll area
@@ -206,6 +215,7 @@ if(__name__ == "__main__"):
     GameLogic.RestartGame()
 
     #start of UI
+    ui.colors(primary=PRIMARY, secondary=SECONDARY, accent=ACCENT, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING, dark=DARK, dark_page=DARK_PAGE)
     ui.dark_mode().enable()
     ui.add_head_html('<style>body { overflow: hidden; }</style>') #disable scrolling
 
@@ -215,7 +225,7 @@ if(__name__ == "__main__"):
 
     #info dialogue setup
     infoDialogue = ui.dialog()
-    with infoDialogue, ui.card().style(f"{BORDER_SETTINGS}; background-color: {DARK}").classes('w-96 h-108 no-shadow border-[5px] items-center justify-center'):
+    with infoDialogue, ui.card().style(f"{BORDER_SETTINGS}").classes('w-96 h-108 no-shadow border-[5px] items-center justify-center'):
         with ui.row().classes('justify-between items-center'):
             ui.icon('sym_r_info', size="150%", color=TEXT_PRIMARY)
             ui.label("Info").style(f"color: {TEXT_PRIMARY}; font-weight: bold; font-size: 150%")
@@ -232,8 +242,11 @@ if(__name__ == "__main__"):
         with ui.row().classes('items-center h-full w-full'):
                 ui.toggle(PAGES, value=1, on_change=lambda e:RenderPage.refresh(e.value))
                 ui.label('Linkedle').style(f'color: {TEXT_PRIMARY}; font-size: 250%; font-weight: bold').classes('absolute-center')
-                ui.button(icon='sym_r_refresh', on_click=lambda e: RestartBtn(), color=PRIMARY)
-                ui.button(icon='sym_r_info', on_click=lambda e: infoDialogue.open(), color=PRIMARY).classes('ml-auto')
+                with ui.dropdown_button('Embed Files', icon="sym_r_storage"):
+                    for opt in EMBED_OPTIONS.keys():
+                        ui.item(str(opt), on_click=lambda e: SelectEmbedOption(str(opt)))
+                ui.button(icon='sym_r_refresh', on_click=lambda e: RestartBtn())
+                ui.button(icon='sym_r_info', on_click=lambda e: infoDialogue.open()).classes('ml-auto')
     
     RenderPage(1)
     
