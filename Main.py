@@ -130,14 +130,14 @@ def WinDialog(dialog: ui.dialog):
         ui.label("You won!").style(f"font-weight: bold; font-size: 150%; color: {TEXT_PRIMARY}")
         ui.label(f"Score: {len(GameLogic._WordChain)-1} links").style(f'color: {TEXT_SECONDARY}')
         ui.label(f"Chain:")
-        with ui.scroll_area().style('height: 50%').classes('border rounded w-full') as scrollArea:
+        with ui.scroll_area().style(f'border-color: {BORDER_COLOR}; border-radius: {BORDER_RADIUS}; border-width: 1px').classes('h-full w-full') as scrollArea:
             with ui.timeline(side='right', layout='dense').classes('gap-0 p-0 h-full'):
                 for i, w in enumerate(GameLogic._WordChain):
                     GameLogic.WordSim(w, GameLogic._TargetWord, 3)
                     ui.timeline_entry("",subtitle=w).style('height: 4rem').classes('p-0')
                 scrollArea.scroll_to(percent=100, duration=1)
 
-        with ui.row().style('width: 100%; height: 100%').classes('justify-center'):
+        with ui.row().style('width: 100%; height: 10%').classes('justify-center'):
             ui.button(icon='sym_r_refresh', on_click=lambda e: (dialog.close(), RestartBtn()))
             ui.button(icon='sym_r_ios_share', on_click=lambda e: CopyClipboardGame())
 
@@ -249,12 +249,11 @@ def DictionaryText(word: str =""):
     if(word != ''):
         ui.separator().style(f'background-color: {BORDER_COLOR}; animation: fade 0.5s')            
         ui.element('div').classes('my-2')
-        betterWord = GameLogic._WordData['vocab'][word]['lemma']
-        definitions = WordDictionary.getRecordsAdvanced(betterWord)
+        definitions = WordDictionary.getRecordsAdvanced(word)
         if(len(definitions.keys())==0): 
-            betterWord = word
-            definitions = WordDictionary.getRecordsAdvanced(betterWord)
-        ui.label(betterWord).style(f'font-size: 250%; font-weight: bold; color: {TEXT_PRIMARY}; text-align: left; animation: fade 1s')
+            word = GameLogic._WordData['vocab'][word]['lemma']
+            definitions = WordDictionary.getRecordsAdvanced(word)
+        ui.label(word).style(f'font-size: 250%; font-weight: bold; color: {TEXT_PRIMARY}; text-align: left; animation: fade 1s')
         total = min(NUM_DEFINITIONS, sum(1 for key in definitions if key.startswith("definition_")))
         for i in range(1, total+1):
             ui.element('div').classes('my-2')
