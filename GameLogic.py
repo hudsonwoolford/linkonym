@@ -164,7 +164,7 @@ def RestartGame(seed: int = None):
         _Seed = datetime.datetime.now().microsecond + datetime.datetime.now().second + datetime.datetime.now().minute
     else:
         _Seed = seed
-    random.seed(_Seed)
+    random.seed(str(_Seed))
 
     _TargetWord = ""
     _WordChain = []

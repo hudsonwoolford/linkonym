@@ -11,6 +11,7 @@ import Dictionary as WordDictionary
 _WinDialog: ui.dialog = None
 _ChainScrollArea: ui.scroll_area = None
 _EmbedOptionKey: str = "Wikipedia2014" #default embed path
+_InputWordBox: ui.input = None
 _Seed: str = "Seed"
 _UseSeed: bool = False
 
@@ -87,6 +88,9 @@ EMBED_OPTIONS = {
 }
 
 #UI functions
+async def RunJavascriptTask(code: str):
+    await ui.run_javascript(code)
+
 def ChangeSiteColor(color: str):
             global PRIMARY
             PRIMARY = color
@@ -115,7 +119,7 @@ def GuessInput(inputBox: ui.input):
                 WinDialog(_WinDialog)
                 
         else:
-            ui.notify(message, type='warning', timeout=1500, position='bottom', badgeColor=WARNING, badgeTextColor=TEXT_BLACK)
+            ui.notify(message, type='warning', timeout=1500, position='bottom', badgeColor='warning', badgeTextColor=TEXT_BLACK)
     else:
         ui.notify(message, type='negative', timeout=1500, position='bottom', badgeColor=NEGATIVE, badgeTextColor=TEXT_PRIMARY)
 
@@ -205,28 +209,20 @@ def StartTargetCards():
 
 @ui.refreshable
 def RenderPage(page: int):
-    global _ChainScrollArea
+    global _ChainScrollArea, _InputWordBox
 
     if(PAGES[page] == "Normal"):
         with ui.column().style(f'width: {GAME_WIDTH_VALUE}rem; justify-content: center; padding-top: 1rem').classes('h-full absolute-center'):
             with ui.element().style('display: flex').classes('w-full justify-center items-center'):
-                ui.chip(f"Chain similar words to get to the target",icon="sym_r_polyline").props("outlined")
+                ui.chip(f"Chain similar words to get to the target",icon="sym_r_link").props("outlined")
 
             #show start and target
             StartTargetCards()
 
-#             #word box
-#             ui.add_body_html("""
-# <div width=100%>
-#     <q-input color="purple-12" v-model="text" label="Label">
-#         <template v-slot:prepend>
-#             <q-icon name="event" />
-#         </template>
-#     </q-input>
-# </div>
-# """)
-            inputText = ui.input(placeholder="chain a word...").props(f'autocomplete=off; autocapitalize=off; input-style="color: {BORDER_COLOR}"').classes(f'w-full')
-            inputText.on('keydown', lambda e: GuessInput(inputText) if e.args['key'] == "Enter" else None)
+            _InputWordBox = ui.input(placeholder="chain a word..."
+                                ).props(f'autocomplete=off; autocapitalize=off; input-style="color: {BORDER_COLOR}"; autofocus'
+                                ).classes(f' gap-0 items-center w-full')
+            _InputWordBox.on('keydown', lambda e: GuessInput(_InputWordBox) if e.args['key'] == "Enter" else None)
 
             #word chain scroll area
             with ui.element().classes("h-screen w-full"):
@@ -365,6 +361,9 @@ body {
         HeaderRow()
     
     RenderPage(1)
+
+
+
     
 ui.run(reload=False) #dont use reload (watch files) because leads to errors
 
