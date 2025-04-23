@@ -242,10 +242,10 @@ if(__name__ == "__main__"):
         with ui.row().classes('items-center h-full w-full'):
                 ui.toggle(PAGES, value=1, on_change=lambda e:RenderPage.refresh(e.value))
                 ui.label('Linkedle').style(f'color: {TEXT_PRIMARY}; font-size: 250%; font-weight: bold').classes('absolute-center')
-                with ui.dropdown_button('Embed Files', icon="sym_r_storage"):
+                ui.button(icon='sym_r_refresh', on_click=lambda e: RestartBtn())
+                with ui.dropdown_button('Embed Files', icon="sym_r_storage", auto_close=True):
                     for opt in EMBED_OPTIONS.keys():
                         ui.item(str(opt), on_click=lambda e: SelectEmbedOption(str(opt)))
-                ui.button(icon='sym_r_refresh', on_click=lambda e: RestartBtn())
                 ui.button(icon='sym_r_info', on_click=lambda e: infoDialogue.open()).classes('ml-auto')
     
     RenderPage(1)
