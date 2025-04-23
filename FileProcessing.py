@@ -194,8 +194,8 @@ def ProcessEmbedsToPT(path: str,
     wordData["emb"] = torch.stack(wordTensor)
 
     #save files
-    torch.save(bannedWordData, dataPath)
-    torch.save(wordData, bannedPath)
+    torch.save(wordData, dataPath)
+    torch.save(bannedWordData, bannedPath)
     print(f"Done! Completed file - wrote {wordIteration} words and {bannedIteration} banned words to their respective files.")
 
 

@@ -32,6 +32,8 @@ POSITIVE = '#21ba45'
 NEGATIVE = '#c10015'
 INFO = '#31ccec'
 WARNING = '#f2c037'
+GAME_WIDTH = '24rem'
+HEADER_HEIGHT = '4rem'
 
 """
 DEFAULTS
@@ -145,6 +147,16 @@ You can play the same seed here: """)
 def InfoDialog(dialog: ui.dialog):
     dialog.open()
 
+def SelectEmbedOption(option: str):
+    global _EmbedOptionKey
+    _EmbedOptionKey = option
+    CreateEmbedDropdown.refresh()
+    GameLogic.LoadWordData(EMBED_OPTIONS[_EmbedOptionKey]["words"], EMBED_OPTIONS[_EmbedOptionKey]["banned"])
+
+def UndoBtn():
+    GameLogic._WordChain = GameLogic._WordChain[:-1] if len(GameLogic._WordChain) > 1 else GameLogic._WordChain
+    WordChain.refresh()
+
 
 @ui.refreshable
 def WordChain():
@@ -161,16 +173,16 @@ def WordChain():
                     ui.label(word).style(f'font-weight: normal; color: {TEXT_PRIMARY}')
                     ui.label(f'{chainMessage}').style(f'color: {TEXT_SECONDARY}').classes('ml-auto')
     
-    ui.element().style("width: 8rem")
+    ui.element().style("height: 8rem")
     
 @ui.refreshable 
 def StartTargetCards():
     #create cards for start and target
-    with ui.row().classes('gap-4 items-center'):
-            with ui.card(align_items='center').style(f"height: 3rem; width: 10rem; {BORDER_SETTINGS}").classes(f'no-shadow'):
+    with ui.row().classes('gap-0 items-center justify-between w-full'):
+            with ui.card(align_items='center').style(f"height: 3rem; width: 40%; {BORDER_SETTINGS}").classes(f'no-shadow'):
                 ui.label(GameLogic._StartWord).style(f'color: {TEXT_PRIMARY}; font-weight: normal').classes('absolute-center')
             ui.icon("sym_r_keyboard_double_arrow_right", size="2rem", color=BORDER_COLOR)
-            with ui.card(align_items='center').style(f"height: 3rem; width: 10rem; {BORDER_SETTINGS}").classes(f'w-48 no-shadow'):
+            with ui.card(align_items='center').style(f"height: 3rem; width: 40%; {BORDER_SETTINGS}").classes(f'no-shadow'):
                 ui.label(GameLogic._TargetWord).style(f'color: {TEXT_PRIMARY}; font-weight: normal').classes('absolute-center')
 
 @ui.refreshable
@@ -178,7 +190,7 @@ def RenderPage(page: int):
     global _ChainScrollArea
 
     if(PAGES[page] == "Normal"):
-        with ui.column().classes('w-full h-full items-center'):
+        with ui.column().style(f'width: {GAME_WIDTH}; justify-content: center; align-items: center; padding-top: 1rem').classes('h-full absolute-center'):
             # ui.chip(f"A max distance of ({GameLogic.DISTANCE_CUTOFF}) can be chained.",icon="sym_r_arrow_forward", on_click=lambda e: ui.notify("Build a chain to the target word")).props("outlined")
 
             #show start and target
@@ -194,18 +206,21 @@ def RenderPage(page: int):
 #     </q-input>
 # </div>
 # """)
-            inputText = ui.input(placeholder="chain a word...").props(f'autocomplete=off; autocapitalize=off; input-style="color: {BORDER_COLOR}"').classes(f'color-red-300 w-96')
+            inputText = ui.input(placeholder="chain a word...").props(f'autocomplete=off; autocapitalize=off; input-style="color: {BORDER_COLOR}"').classes(f'w-full')
             inputText.on('keydown', lambda e: GuessInput(inputText) if e.args['key'] == "Enter" else None)
 
             #word chain scroll area
-            with ui.element().classes("h-screen"):
-                with ui.scroll_area().style(f"height: 60%; border-color: {BORDER_COLOR}; border-width: 1px; border-radius: {BORDER_RADIUS}").classes(f'rounded w-96 p-0') as scrollArea:
+            with ui.element().classes("h-screen w-full"):
+                with ui.scroll_area().style(f"height: 60%; border-color: {BORDER_COLOR}; border-width: 1px; border-radius: {BORDER_RADIUS}").classes(f'rounded w-full p-0') as scrollArea:
                     _ChainScrollArea = scrollArea
                     WordChain()
+@ui.refreshable
+def CreateEmbedDropdown():
+    with ui.dropdown_button('Embed Files', icon="sym_r_storage", auto_close=True):
+        for opt in EMBED_OPTIONS.keys():
+            hexColor = PRIMARY if opt == _EmbedOptionKey else DARK
+            ui.item(str(opt), on_click=lambda e, option = str(opt): SelectEmbedOption(option)).style(f"background-color: {hexColor}")
 
-def SelectEmbedOption(option: str):
-    global _EmbedOptionKey
-    _EmbedOptionKey = option
 
 #start of program
 if(__name__ == "__main__"):
@@ -238,14 +253,13 @@ if(__name__ == "__main__"):
                      not necessarily similar meaning""").style(f'color: {TEXT_PRIMARY}')
             
     #header
-    with ui.header().style(f'background-color: {DARK}').style('font-size: 24').classes('h-16 w-screen font-weight-bold'):
-        with ui.row().classes('items-center h-full w-full'):
+    with ui.header().style(f'background-color: {DARK}').style(f'font-size: 24; height: {HEADER_HEIGHT}').classes('py-0 w-screen font-weight-bold'):
+        with ui.row().style(f'height: {HEADER_HEIGHT}').classes('items-center w-full'):
                 ui.toggle(PAGES, value=1, on_change=lambda e:RenderPage.refresh(e.value))
                 ui.label('Linkedle').style(f'color: {TEXT_PRIMARY}; font-size: 250%; font-weight: bold').classes('absolute-center')
+                ui.button(icon='sym_r_undo', on_click=lambda e: UndoBtn())
                 ui.button(icon='sym_r_refresh', on_click=lambda e: RestartBtn())
-                with ui.dropdown_button('Embed Files', icon="sym_r_storage", auto_close=True):
-                    for opt in EMBED_OPTIONS.keys():
-                        ui.item(str(opt), on_click=lambda e: SelectEmbedOption(str(opt)))
+                CreateEmbedDropdown()
                 ui.button(icon='sym_r_info', on_click=lambda e: infoDialogue.open()).classes('ml-auto')
     
     RenderPage(1)
