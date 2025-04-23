@@ -100,6 +100,7 @@ def ChangeSiteColor(color: str):
 
 def RestartBtn():
     GameLogic.RestartGame(_Seed if _UseSeed else None)
+    DictionaryText("")
     StartTargetCards.refresh()
     WordChain.refresh()
     _WinDialog.clear()
