@@ -4,6 +4,8 @@ import time
 import math
 import pyperclip
 import asyncio
+from CustomUI import ToggleButton
+import Dictionary as WordDictionary
 
 #UI variables
 _WinDialog: ui.dialog = None
@@ -32,8 +34,10 @@ POSITIVE = '#21ba45'
 NEGATIVE = '#c10015'
 INFO = '#31ccec'
 WARNING = '#f2c037'
-GAME_WIDTH = '24rem'
+GAME_WIDTH_VALUE = 24
 HEADER_HEIGHT = '4rem'
+NUM_DEFINITIONS = 2
+
 
 """
 DEFAULTS
@@ -80,6 +84,13 @@ EMBED_OPTIONS = {
 }
 
 #UI functions
+def ChangeSiteColor(color: str):
+            global PRIMARY
+            PRIMARY = color
+            ui.colors(primary=PRIMARY, secondary=SECONDARY, accent=ACCENT, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING, dark=DARK, dark_page=DARK_PAGE)
+            HeaderRow.refresh()
+            RenderPage.refresh()
+
 def RestartBtn():
     GameLogic.RestartGame()
     StartTargetCards.refresh()
@@ -109,14 +120,17 @@ def GuessInput(inputBox: ui.input):
     inputBox.value = ""
     ui.run_javascript(f"document.getElementById('{inputBox.id}').focus()")
 
+def OverlayCard() -> ui.card:
+    return ui.card().style(f'{BORDER_SETTINGS}; width: 20rem; height: 28rem').classes(f'hidden-scroll no-shadow items-center hidden-scrollbar')
+
 #dialog card when you win the game
 def WinDialog(dialog: ui.dialog):
     ##set all parameters
-    with dialog, ui.card().style(BORDER_SETTINGS).classes(f'w-64 h-108 no-shadow items-center justify-center'):
+    with dialog, OverlayCard():
         ui.label("You won!").style(f"font-weight: bold; font-size: 150%; color: {TEXT_PRIMARY}")
         ui.label(f"Score: {len(GameLogic._WordChain)-1} links").style(f'color: {TEXT_SECONDARY}')
         ui.label(f"Chain:")
-        with ui.scroll_area().classes('border rounded w-full') as scrollArea:
+        with ui.scroll_area().style('height: 50%').classes('border rounded w-full') as scrollArea:
             with ui.timeline(side='right', layout='dense').classes('gap-0 p-0 h-full'):
                 for i, w in enumerate(GameLogic._WordChain):
                     GameLogic.WordSim(w, GameLogic._TargetWord, 3)
@@ -125,7 +139,7 @@ def WinDialog(dialog: ui.dialog):
 
         with ui.row().style('width: 100%; height: 100%').classes('justify-center'):
             ui.button(icon='sym_r_refresh', on_click=lambda e: (dialog.close(), RestartBtn()))
-            ui.button(icon='sym_r_share', on_click=lambda e: (dialog.close(), RestartBtn()))
+            ui.button(icon='sym_r_ios_share', on_click=lambda e: CopyClipboardGame())
 
         
     dialog.open() #show card
@@ -143,6 +157,7 @@ Here's my word chain from '{GameLogic._StartWord}' to '{GameLogic._TargetWord}':
 Score: {len(GameLogic._WordChain)} 🔥
 
 You can play the same seed here: """)
+    ui.notify("Copied game to clipboard")
 
 def InfoDialog(dialog: ui.dialog):
     dialog.open()
@@ -152,6 +167,7 @@ def SelectEmbedOption(option: str):
     _EmbedOptionKey = option
     CreateEmbedDropdown.refresh()
     GameLogic.LoadWordData(EMBED_OPTIONS[_EmbedOptionKey]["words"], EMBED_OPTIONS[_EmbedOptionKey]["banned"])
+    WordChain.refresh()
 
 def UndoBtn():
     GameLogic._WordChain = GameLogic._WordChain[:-1] if len(GameLogic._WordChain) > 1 else GameLogic._WordChain
@@ -174,23 +190,22 @@ def WordChain():
                     ui.label(f'{chainMessage}').style(f'color: {TEXT_SECONDARY}').classes('ml-auto')
     
     ui.element().style("height: 8rem")
+    _ChainScrollArea.scroll_to(percent=100, duration=0.5)
     
 @ui.refreshable 
 def StartTargetCards():
     #create cards for start and target
     with ui.row().classes('gap-0 items-center justify-between w-full'):
-            with ui.card(align_items='center').style(f"height: 3rem; width: 40%; {BORDER_SETTINGS}").classes(f'no-shadow'):
-                ui.label(GameLogic._StartWord).style(f'color: {TEXT_PRIMARY}; font-weight: normal').classes('absolute-center')
+            startWordTgl = ToggleButton(GameLogic._StartWord, col1=DARK, col2=PRIMARY, onChange=DictionaryText.refresh).style(BORDER_SETTINGS)
             ui.icon("sym_r_keyboard_double_arrow_right", size="2rem", color=BORDER_COLOR)
-            with ui.card(align_items='center').style(f"height: 3rem; width: 40%; {BORDER_SETTINGS}").classes(f'no-shadow'):
-                ui.label(GameLogic._TargetWord).style(f'color: {TEXT_PRIMARY}; font-weight: normal').classes('absolute-center')
+            targetWordTgl = ToggleButton(GameLogic._TargetWord, col1=DARK, col2=PRIMARY, onChange=DictionaryText.refresh).style(BORDER_SETTINGS)
 
 @ui.refreshable
 def RenderPage(page: int):
     global _ChainScrollArea
 
     if(PAGES[page] == "Normal"):
-        with ui.column().style(f'width: {GAME_WIDTH}; justify-content: center; align-items: center; padding-top: 1rem').classes('h-full absolute-center'):
+        with ui.column().style(f'width: {GAME_WIDTH_VALUE}rem; justify-content: center; padding-top: 1rem').classes('h-full absolute-center'):
             # ui.chip(f"A max distance of ({GameLogic.DISTANCE_CUTOFF}) can be chained.",icon="sym_r_arrow_forward", on_click=lambda e: ui.notify("Build a chain to the target word")).props("outlined")
 
             #show start and target
@@ -214,13 +229,55 @@ def RenderPage(page: int):
                 with ui.scroll_area().style(f"height: 60%; border-color: {BORDER_COLOR}; border-width: 1px; border-radius: {BORDER_RADIUS}").classes(f'rounded w-full p-0') as scrollArea:
                     _ChainScrollArea = scrollArea
                     WordChain()
+                ui.element('div').classes('my-4')
+                DictionaryText("")
+
 @ui.refreshable
 def CreateEmbedDropdown():
-    with ui.dropdown_button('Embed Files', icon="sym_r_storage", auto_close=True):
+    with ui.dropdown_button(_EmbedOptionKey, icon="sym_r_storage", auto_close=True):
         for opt in EMBED_OPTIONS.keys():
             hexColor = PRIMARY if opt == _EmbedOptionKey else DARK
             ui.item(str(opt), on_click=lambda e, option = str(opt): SelectEmbedOption(option)).style(f"background-color: {hexColor}")
 
+@ui.refreshable
+def DictionaryText(word: str =""):
+    ui.add_head_html(r'''
+    <style>
+        @keyframes fade {from {opacity: 0;} to {opacity: 1.0;}}
+    </style>
+    ''')
+    if(word != ''):
+        ui.separator().style(f'background-color: {BORDER_COLOR}; animation: fade 0.5s')            
+        ui.element('div').classes('my-2')
+        betterWord = GameLogic._WordData['vocab'][word]['lemma']
+        definitions = WordDictionary.getRecordsAdvanced(betterWord)
+        if(len(definitions.keys())==0): 
+            betterWord = word
+            definitions = WordDictionary.getRecordsAdvanced(betterWord)
+        ui.label(betterWord).style(f'font-size: 250%; font-weight: bold; color: {TEXT_PRIMARY}; text-align: left; animation: fade 1s')
+        total = min(NUM_DEFINITIONS, sum(1 for key in definitions if key.startswith("definition_")))
+        for i in range(1, total+1):
+            ui.element('div').classes('my-2')
+            ui.label(f"{i}. {definitions[f'pos_{i}']}").style(f'color: {TEXT_PRIMARY}; text-align: left; animation: fade 1s').classes('text-italic')
+            ui.element('div').classes('my-2')
+            ui.label(definitions[f'definition_{i}']).style(f' color: {TEXT_PRIMARY}; text-align: left; animation: fade 1s')
+        
+        ui.element('div').classes('my-4')
+        ui.separator().style(f'background-color: {BORDER_COLOR}; animation: fade 0.5s')
+
+@ui.refreshable
+def HeaderRow():
+    with ui.row().style(f'height: {HEADER_HEIGHT}').classes('justify-between items-center w-full'):
+        with ui.row().classes('justify-center'):
+            ui.toggle(PAGES, value=1, on_change=lambda e:RenderPage.refresh(e.value))
+            ui.button(icon='sym_r_undo', on_click=lambda e: UndoBtn())
+            ui.button(icon='sym_r_refresh', on_click=lambda e: RestartBtn())
+
+        ui.label('Linkedle').style(f'color: {TEXT_PRIMARY}; font-size: 250%; font-weight: bold').classes('absolute-center')
+        with ui.row().classes('justify-center'):
+            CreateEmbedDropdown()
+            ui.button(icon='sym_r_code', on_click=lambda e: devDialog.open())
+            ui.button(icon='sym_r_info', on_click=lambda e: infoDialog.open())
 
 #start of program
 if(__name__ == "__main__"):
@@ -232,35 +289,72 @@ if(__name__ == "__main__"):
     #start of UI
     ui.colors(primary=PRIMARY, secondary=SECONDARY, accent=ACCENT, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING, dark=DARK, dark_page=DARK_PAGE)
     ui.dark_mode().enable()
-    ui.add_head_html('<style>body { overflow: hidden; }</style>') #disable scrolling
+    ui.add_head_html(r"""
+<style>
+body { 
+    overflow: hidden; 
+}
 
+.hidden-scrollbar {
+    overflow-y: scroll;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none;  /* Internet Explorer 10+ */
+}
+
+.hidden-scrollbar::-webkit-scrollbar { /* WebKit */
+    width: 0;
+    height: 0;
+}
+</style>
+""")#disable scrolling
+    
     #winning dialogue setup
     _WinDialog = ui.dialog()
     _WinDialog.close()
 
     #info dialogue setup
-    infoDialogue = ui.dialog()
-    with infoDialogue, ui.card().style(f"{BORDER_SETTINGS}").classes('w-96 h-108 no-shadow border-[5px] items-center justify-center'):
-        with ui.row().classes('justify-between items-center'):
+    infoDialog = ui.dialog()
+    with infoDialog, OverlayCard():
+
+        descriptionCSS = f'color: #AAAAAA; font-style: normal; font-size: 90%'
+        with ui.row().classes('justify-center items-center gap-1.5'):
             ui.icon('sym_r_info', size="150%", color=TEXT_PRIMARY)
             ui.label("Info").style(f"color: {TEXT_PRIMARY}; font-weight: bold; font-size: 150%")
-        with ui.expansion(text="How do I play?").style(f"color: {TEXT_PRIMARY};").classes('w-full'):
-            ui.label(f"""The goal is to create a chain of related words to reach a 'target' word. 
-                     The start and ending positions are determined randomly, and linked words must be a 
-                     distance of {GameLogic.DISTANCE_CUTOFF} from the previous.""").style(f"color: {TEXT_SECONDARY};")
-            ui.label("""*Some words may seem obviously related but have a high distance.
-                      The algorithm determines similarity based upon similar contexts, 
-                     not necessarily similar meaning""").style(f'color: {TEXT_PRIMARY}')
+        with ui.expansion(text="How do I play?").style(f"color: {TEXT_PRIMARY}; width: 100%; font-style: oblique; border-radius: {BORDER_RADIUS}"):
+            ui.label(f"""Your goal is to create a chain of related words to reach a 'target' word. 
+                     Start and ending words are determined randomly, and links must have a maximum
+                     similarity of {GameLogic.DISTANCE_CUTOFF} from the previous.""").style(descriptionCSS)
+        with ui.expansion(text='How are word similarities determined?').style(f"color: {TEXT_PRIMARY}; width: 100%; font-style: oblique; border-radius: {BORDER_RADIUS}"):
+            ui.label("""Linkedle queries a database of over 70000 words that each have a corresponding vector. These vectors
+                     are tweaked through NLP models. A euclidean distance operation between two word vectors returns the similarity.
+                     Since similarity is based upon similar contexts, it doesn't necessarily translate to similar meaning.""").style(descriptionCSS)
+        with ui.expansion(text='Who created Linkedle?').style(f"color: {TEXT_PRIMARY}; width: 100%; font-style: oblique; border-radius: {BORDER_RADIUS}"):
+            ui.label("""Hudson Woolford programmed Linkedle in python for a Computer Science project at his school.""").style(descriptionCSS)
+            ui.label("""Ted Boss acted as a playtester and provided valuable feedback throughout development""").style(descriptionCSS + f'; color: {TEXT_SECONDARY}')
+        with ui.expansion(text='Have you made any other products?').style(f"color: {TEXT_PRIMARY}; width: 100%; font-style: oblique; border-radius: {BORDER_RADIUS}"):
+            ui.label("""Hudson Woolford was a developer on Swingularity, an indie space golf game. Check it out!""").style(descriptionCSS)
+            ui.link(text="Swingularity on STEAM", target="https://store.steampowered.com/app/3272450/Swingularity/", new_tab=True).style(descriptionCSS)
+    
+    #developer tools
+    devDialog = ui.dialog()
+    with devDialog, OverlayCard().classes('gap-2'):
+        with ui.button(icon='palette', text='Site Color').classes('justify-center w-full'):
+            picker = ui.color_picker(on_pick=lambda e: (ChangeSiteColor(color=e.color)))
+            picker.q_color.props('default-view=palette no-header no-footer')
+        ui.label('Max Distance:').style('font-weight: bold')
+        def ChangeGameDistValue(val: float):
+            GameLogic.DISTANCE_CUTOFF = val
+        with ui.row().classes('w-full justify-between items-center gap-0'):
+            slider = ui.slider(min=0, max=1, step=0.01, value=GameLogic.DISTANCE_CUTOFF, on_change=lambda e: ChangeGameDistValue(e.value)).style('width: 60%')
+            ui.input().bind_value(slider, 'value').style('width: 30%').props('outlined dense rounded')
+        with ui.row().classes('w-full justify-between items-center gap-0'):
+            slider = ui.slider(min=18, max=100, step=1, on_change=lambda e: RenderPage.refresh(1)).style('width: 60%')
+            slider.bind_value(globals(), 'GAME_WIDTH_VALUE')
+            inputBox = ui.input().style('width: 30%').props('outlined dense rounded')
             
     #header
     with ui.header().style(f'background-color: {DARK}').style(f'font-size: 24; height: {HEADER_HEIGHT}').classes('py-0 w-screen font-weight-bold'):
-        with ui.row().style(f'height: {HEADER_HEIGHT}').classes('items-center w-full'):
-                ui.toggle(PAGES, value=1, on_change=lambda e:RenderPage.refresh(e.value))
-                ui.label('Linkedle').style(f'color: {TEXT_PRIMARY}; font-size: 250%; font-weight: bold').classes('absolute-center')
-                ui.button(icon='sym_r_undo', on_click=lambda e: UndoBtn())
-                ui.button(icon='sym_r_refresh', on_click=lambda e: RestartBtn())
-                CreateEmbedDropdown()
-                ui.button(icon='sym_r_info', on_click=lambda e: infoDialogue.open()).classes('ml-auto')
+        HeaderRow()
     
     RenderPage(1)
     
