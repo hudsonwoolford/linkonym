@@ -135,9 +135,10 @@ def OverlayCard() -> ui.card:
 def WinDialog(dialog: ui.dialog):
     ##set all parameters
     with dialog, OverlayCard():
-        ui.label("You won!").style(f"font-weight: bold; font-size: 150%; color: {TEXT_PRIMARY}")
-        ui.label(f"Score: {len(GameLogic._WordChain)-1} links").style(f'color: {TEXT_SECONDARY}')
-        ui.label(f"Chain:")
+        with ui.row().classes('justify-center items-center gap-1.5'):
+            ui.icon('sym_r_emoji_events', size="150%", color=TEXT_PRIMARY)
+            ui.label("You won!").style(f"color: {TEXT_PRIMARY}; font-weight: bold; font-size: 150%")
+        ui.chip(f"Links: {len(GameLogic._WordChain)-1}", icon='sym_r_link')
         with ui.scroll_area().style(f'border-color: {BORDER_COLOR}; border-radius: {BORDER_RADIUS}; border-width: 1px; width: 90%').classes('h-full') as scrollArea:
             with ui.timeline(side='right', layout='dense').classes('gap-0 p-0 h-full'):
                 for i, w in enumerate(GameLogic._WordChain):
@@ -156,15 +157,17 @@ def CopyClipboardGame():
     chain = ""
     for word in GameLogic._WordChain:
         chain += f"||{word}||\n"
-    pyperclip.copy(f"""Check out my Linkedle game! 🙂
+    pyperclip.copy(f"""----------
+Check out my Linkedle game! 🙂
 
 Here's my word chain from '{GameLogic._StartWord}' to '{GameLogic._TargetWord}': 🔗
 
 {chain}
 
-Score: {len(GameLogic._WordChain)} 🔥
+Score: {len(GameLogic._WordChain)-1} 🔥
 
-You can play the same seed here: {GameLogic._Seed}""")
+You can play the same seed here: {GameLogic._Seed}
+----------""")
     ui.notify("Copied game to clipboard")
 
 def InfoDialog(dialog: ui.dialog):
