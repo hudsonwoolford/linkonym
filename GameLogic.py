@@ -6,7 +6,6 @@ import Utility
 
 DISTANCE_CUTOFF = 0.325 #max distance for word chain
 TERMINAL_RANGE = range(100, 10000)
-LEMMA_INPUT = False
 WORD_CATEGORY = {
     "banned" :["PRON", "DET", "CCONJ", "SCONJ", "PART", "PUNCT", "AUX", "INTJ"],
     "halfBanned": ['PROPN', 'NUM'],
@@ -160,20 +159,14 @@ def RestartGame():
     _WordChain = []
     GenerateStartEndWords(minDistance=0.5)
 
-def InitializeGame():
+def LoadWordData(wordPath: str, bannedPath: str):
     global _WordData, _BannedData, _nlp 
 
-    _BannedData = torch.load("output/WikipediaBannedData.pt")
-    _WordData = torch.load("output/WikipediaWordData.pt")
+    _WordData = torch.load(wordPath)
+    _BannedData = torch.load(bannedPath)
 
     # _WordData["vocab"] = StanzaUtility.LemmatarizedDict(_WordData["vocab"]) #get lemma only
 
-    #stanza initialization
-    if(LEMMA_INPUT):
-        processors = "tokenize, mwt, pos, lemma" #processors required for lemmatarization and noun identification
-        _nlp = stanza.Pipeline(lang='en', processors=processors)
-
-    RestartGame()
 
 # InitializeGame()
 # while True:
