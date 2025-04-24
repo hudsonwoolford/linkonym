@@ -100,7 +100,7 @@ def ChangeSiteColor(color: str):
 
 def RestartBtn():
     GameLogic.RestartGame(_Seed if _UseSeed else None)
-    DictionaryText("")
+    DictionaryText.refresh()
     StartTargetCards.refresh()
     WordChain.refresh()
     _WinDialog.clear()
@@ -147,7 +147,7 @@ def WinDialog(dialog: ui.dialog):
                 scrollArea.scroll_to(percent=100, duration=1)
 
         with ui.row().style('width: 100%; height: 10%').classes('justify-center'):
-            ui.button(icon='sym_r_refresh', on_click=lambda e: (dialog.close(), RestartBtn()))
+            ui.button(icon='sym_r_navigate_next', on_click=lambda e: (dialog.close(), RestartBtn()))
             ui.button(icon='sym_r_ios_share', on_click=lambda e: CopyClipboardGame())
 
         
@@ -193,23 +193,24 @@ def WordChain():
             chainMessage = f"({GameLogic.WordSim(word, GameLogic._TargetWord, 3)}) to '{GameLogic._TargetWord}'"
             # if(not i == len(GameLogic._WordChain)-1):
             #     chainMessage = f"({GameLogic.WordSim(word, GameLogic._WordChain[i+1], 3)})"
+            appendStyle = "" if not i == len(GameLogic._WordChain) - 1 else "; animation: fade 0.3s"
 
-            with ui.card(align_items='left').style(f"height: 3rem; {BORDER_SETTINGS}").classes(f'py-0 no-shadow w-full items-center'):
+            with ui.card(align_items='left').style(f"height: 3rem; {BORDER_SETTINGS}" + appendStyle).classes(f'py-0 no-shadow w-full items-center'):
                 with ui.row().classes('gap-4 h-full w-full items-center'):
                     ui.label(f'{i+1}').style(f'color: {TEXT_SECONDARY}')
                     ui.label(word).style(f'font-weight: normal; color: {TEXT_PRIMARY}')
                     ui.label(f'{chainMessage}').style(f'color: {TEXT_SECONDARY}').classes('ml-auto')
     
-    ui.element().style("height: 8rem")
-    _ChainScrollArea.scroll_to(percent=100, duration=0.5)
+    ui.element().style("height: 8rem").classes('w-full')
+    _ChainScrollArea.scroll_to(percent=100, axis='vertical', duration=0.5)
     
 @ui.refreshable 
 def StartTargetCards():
     #create cards for start and target
     with ui.row().classes('gap-0 items-center justify-between w-full'):
-            startWordTgl = ToggleButton(GameLogic._StartWord, col1=DARK, col2=PRIMARY, onChange=DictionaryText.refresh).style(BORDER_SETTINGS)
+            ToggleButton(GameLogic._StartWord, col1=DARK, col2=PRIMARY, onChange=DictionaryText.refresh).style(BORDER_SETTINGS)
             ui.icon("sym_r_keyboard_double_arrow_right", size="2rem", color=BORDER_COLOR)
-            targetWordTgl = ToggleButton(GameLogic._TargetWord, col1=DARK, col2=PRIMARY, onChange=DictionaryText.refresh).style(BORDER_SETTINGS)
+            ToggleButton(GameLogic._TargetWord, col1=DARK, col2=PRIMARY, onChange=DictionaryText.refresh).style(BORDER_SETTINGS)
 
 @ui.refreshable
 def RenderPage(page: int):
@@ -234,7 +235,7 @@ def RenderPage(page: int):
                     _ChainScrollArea = scrollArea
                     WordChain()
                 ui.element('div').classes('my-4')
-                DictionaryText("")
+                DictionaryText()
 
 @ui.refreshable
 def CreateEmbedDropdown():
@@ -245,11 +246,6 @@ def CreateEmbedDropdown():
 
 @ui.refreshable
 def DictionaryText(word: str =""):
-    ui.add_head_html(r'''
-    <style>
-        @keyframes fade {from {opacity: 0;} to {opacity: 1.0;}}
-    </style>
-    ''')
     if(word != ''):
         ui.separator().style(f'background-color: {BORDER_COLOR}; animation: fade 0.5s')            
         ui.element('div').classes('my-2')
@@ -274,7 +270,7 @@ def HeaderRow():
         with ui.row().classes('justify-center'):
             ui.toggle(PAGES, value=1, on_change=lambda e:RenderPage.refresh(e.value))
             ui.button(icon='sym_r_undo', on_click=lambda e: UndoBtn())
-            ui.button(icon='sym_r_refresh', on_click=lambda e: RestartBtn())
+            ui.button(icon='sym_r_navigate_next', on_click=lambda e: RestartBtn())
 
         ui.label('Linkedle').style(f'color: {TEXT_PRIMARY}; font-size: 250%; font-weight: bold').classes('absolute-center')
         with ui.row().classes('justify-center'):
@@ -292,6 +288,12 @@ if(__name__ == "__main__"):
     #start of UI
     ui.colors(primary=PRIMARY, secondary=SECONDARY, accent=ACCENT, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING, dark=DARK, dark_page=DARK_PAGE)
     ui.dark_mode().enable()
+    
+    ui.add_head_html(r'''
+<style>
+    @keyframes fade {from {opacity: 0;} to {opacity: 1.0;}}
+</style>
+    ''') #fading
     ui.add_head_html(r"""
 <style>
 body { 
@@ -378,5 +380,5 @@ body {
     RenderPage(1)
 
     
-ui.run(reload=False) #dont use reload (watch files) because leads to errors
+ui.run(reload=False, title="Linkedle", show=False) #dont use reload (watch files) because leads to errors
 

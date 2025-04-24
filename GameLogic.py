@@ -1,5 +1,7 @@
-import torch
-import Utility
+from torch import Tensor
+from torch.nn import CosineSimilarity 
+from torch import load as torchLoad
+from Utility import RandomKey
 import random
 import datetime
 
@@ -25,8 +27,8 @@ _WordChain = [] #current chain of words
 #ensure model is downloaded
 # stanza.download('en')
 
-def TensorCosSimilarity(t1: torch.Tensor, t2: torch.Tensor) -> float:
-    cos = torch.nn.CosineSimilarity(dim=0)
+def TensorCosSimilarity(t1: Tensor, t2: Tensor) -> float:
+    cos = CosineSimilarity(dim=0)
     return (1-float(cos(t1, t2)))/2
 
 def WordTensor(word: str):
@@ -117,19 +119,19 @@ def GenerateStartEndWords(minDistance: float = 0.325) -> tuple:
     if(len(_WordChain)>0):
         print("Warning: Word chain should be empty when calling GenerateStartEndWords")
 
-    end = Utility.RandomKey(_WordData["vocab"], TERMINAL_RANGE)
+    end = RandomKey(_WordData["vocab"], TERMINAL_RANGE)
     while _WordData["vocab"][end]["pos"] in WORD_CATEGORY["halfBanned"]:
-        end = Utility.RandomKey(_WordData["vocab"], TERMINAL_RANGE)
+        end = RandomKey(_WordData["vocab"], TERMINAL_RANGE)
 
     end = RemoveFeatureSuffix(end, "Number=Plur", "s") #make plur sing
     end = RemoveFeatureSuffix(end, "Tense=Past", ["ed","d"]) #make past present
 
-    start = Utility.RandomKey(_WordData["vocab"], TERMINAL_RANGE)
+    start = RandomKey(_WordData["vocab"], TERMINAL_RANGE)
     start = RemoveFeatureSuffix(start, "Number=Plur", "s") #make plur sing
     start = RemoveFeatureSuffix(start, "Tense=Past", ["ed","d"]) #make past present
     K = 0
     while  _WordData["vocab"][start]["pos"] in WORD_CATEGORY["halfBanned"] or WordSim(start, end) < minDistance:
-        start = Utility.RandomKey(_WordData["vocab"], TERMINAL_RANGE)
+        start = RandomKey(_WordData["vocab"], TERMINAL_RANGE)
         start = RemoveFeatureSuffix(start, "Number=Plur", "s") #make plur sing
         start = RemoveFeatureSuffix(start, "Tense=Past", ["ed","d"]) #make past present
         K+=1
@@ -165,8 +167,8 @@ def RestartGame(seed: int = None):
 def LoadWordData(wordPath: str, bannedPath: str):
     global _WordData, _BannedData, _nlp 
 
-    _WordData = torch.load(wordPath)
-    _BannedData = torch.load(bannedPath)
+    _WordData = torchLoad(wordPath)
+    _BannedData = torchLoad(bannedPath)
 
     # _WordData["vocab"] = StanzaUtility.LemmatarizedDict(_WordData["vocab"]) #get lemma only
 

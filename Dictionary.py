@@ -1,5 +1,4 @@
 from nltk.corpus import wordnet
-import nltk
 
 #if not downloaded
 # nltk.download('wordnet')
@@ -59,7 +58,7 @@ def getRecordsAdvanced(word):
     syn = wordnet.synsets(word)
     if not syn:
         return None
-
+    
     dform = {
         "n": "noun",
         "v": "verb",
@@ -105,3 +104,5 @@ def getRecordsAdvanced(word):
         result["antonyms"] = list(antonyms)
     
     return result
+
+wordnet.synsets("bark") #initialize
