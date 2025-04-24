@@ -1,16 +1,16 @@
-from nicegui import ui
+from nicegui import ui, app
 import GameLogic
 import pyperclip
 from CustomUI import ToggleButton
 import Dictionary as WordDictionary
 
 #UI variables
-_WinDialog: ui.dialog = None
 _ChainScrollArea: ui.scroll_area = None
 _EmbedOptionKey: str = "Wikipedia2014" #default embed path
 _InputWordBox: ui.input = None
 _Seed: str = "Seed"
 _UseSeed: bool = False
+_Dialogs: dict = {}
 
 PAGES = {
     1 : "Normal",
@@ -84,26 +84,55 @@ EMBED_OPTIONS = {
     }
 }
 
-#UI functions
-async def RunJavascriptTask(code: str):
-    await ui.run_javascript(code)
+
+""" 
+-------------------------------------------------------------------------------
+
+UTILITY FUNCTIONS
+
+-------------------------------------------------------------------------------
+"""
+def OverlayCard() -> ui.card:
+    return ui.card().style(f'{BORDER_SETTINGS}; width: 20rem; height: 28rem').classes(f'hidden-scroll no-shadow items-center hidden-scrollbar')
+
+def CopyClipboardGame():
+    chain = ""
+    for word in GameLogic._WordChain:
+        chain += f"||{word}||\n"
+
+    pyperclip.copy(f"""
+----------
+Check out my Linkedle game! 🙂
+
+Here's my word chain from '{GameLogic._StartWord}' to '{GameLogic._TargetWord}': 🔗
+
+{chain}
+
+Score: {len(GameLogic._WordChain)-1} 🔥
+
+You can play the same seed here: {GameLogic._Seed}
+----------
+""")
+    
+    ui.notify("Copied game to clipboard")
 
 def ChangeSiteColor(color: str):
-            global PRIMARY
-            PRIMARY = color
-            ui.colors(primary=PRIMARY, secondary=SECONDARY, accent=ACCENT, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING, dark=DARK, dark_page=DARK_PAGE)
-            ui.run_javascript(f'''
-            document.documentElement.style.setProperty('--selection-color', '{PRIMARY}');
-            ''')
-            HeaderRow.refresh()
-            RenderPage.refresh()
+    global PRIMARY
+    PRIMARY = color
+    ui.colors(primary=PRIMARY, secondary=SECONDARY, accent=ACCENT, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING, dark=DARK, dark_page=DARK_PAGE)
+    app.storage.user['pageColor'] = color
+    ui.run_javascript(f'''
+    document.documentElement.style.setProperty('--selection-color', '{PRIMARY}');
+    ''')
+    HeaderRow.refresh()
+    ui.notify(f"Changed site color to {PRIMARY}", timeout=500)
 
 def RestartBtn():
     GameLogic.RestartGame(_Seed if _UseSeed else None)
     DictionaryText.refresh()
     StartTargetCards.refresh()
     WordChain.refresh()
-    _WinDialog.clear()
+    _Dialogs['win'].clear()
 
 #when user inputs guess from textbox
 def GuessInput(inputBox: ui.input):
@@ -117,7 +146,7 @@ def GuessInput(inputBox: ui.input):
             WordChain.refresh()
             ui.notify(message, type='positive', timeout=1500, position='bottom', badgeColor=POSITIVE, badgeTextColor=TEXT_PRIMARY)
             if(guess == GameLogic._TargetWord):
-                WinDialog(_WinDialog)
+                WinDialog(_Dialogs['win'])
                 
         else:
             ui.notify(message, type='warning', timeout=1500, position='bottom', badgeColor='warning', badgeTextColor=TEXT_BLACK)
@@ -127,18 +156,18 @@ def GuessInput(inputBox: ui.input):
     #reset and refocus box
     inputBox.value = ""
     ui.run_javascript(f"document.getElementById('{inputBox.id}').focus()")
-
-def OverlayCard() -> ui.card:
-    return ui.card().style(f'{BORDER_SETTINGS}; width: 20rem; height: 28rem').classes(f'hidden-scroll no-shadow items-center hidden-scrollbar')
-
+    
 #dialog card when you win the game
 def WinDialog(dialog: ui.dialog):
+    #store parameters
+
     ##set all parameters
     with dialog, OverlayCard():
         with ui.row().classes('justify-center items-center gap-1.5'):
             ui.icon('sym_r_emoji_events', size="150%", color=TEXT_PRIMARY)
             ui.label("You won!").style(f"color: {TEXT_PRIMARY}; font-weight: bold; font-size: 150%")
         ui.chip(f"{len(GameLogic._WordChain)-1} links", icon='sym_r_link')
+
         with ui.scroll_area().style(f'border-color: {BORDER_COLOR}; border-radius: {BORDER_RADIUS}; border-width: 1px; width: 90%').classes('h-full') as scrollArea:
             with ui.timeline(side='right', layout='dense').classes('gap-0 p-0 h-full'):
                 for i, w in enumerate(GameLogic._WordChain):
@@ -153,26 +182,6 @@ def WinDialog(dialog: ui.dialog):
         
     dialog.open() #show card
 
-def CopyClipboardGame():
-    chain = ""
-    for word in GameLogic._WordChain:
-        chain += f"||{word}||\n"
-    pyperclip.copy(f"""----------
-Check out my Linkedle game! 🙂
-
-Here's my word chain from '{GameLogic._StartWord}' to '{GameLogic._TargetWord}': 🔗
-
-{chain}
-
-Score: {len(GameLogic._WordChain)-1} 🔥
-
-You can play the same seed here: {GameLogic._Seed}
-----------""")
-    ui.notify("Copied game to clipboard")
-
-def InfoDialog(dialog: ui.dialog):
-    dialog.open()
-
 def SelectEmbedOption(option: str):
     global _EmbedOptionKey
     _EmbedOptionKey = option
@@ -184,7 +193,13 @@ def UndoBtn():
     GameLogic._WordChain = GameLogic._WordChain[:-1] if len(GameLogic._WordChain) > 1 else GameLogic._WordChain
     WordChain.refresh()
 
+""" 
+-------------------------------------------------------------------------------
 
+REFRESHABLE ELEMENTS
+
+-------------------------------------------------------------------------------
+"""
 @ui.refreshable
 def WordChain():
     #create a card for each word
@@ -194,12 +209,13 @@ def WordChain():
             # if(not i == len(GameLogic._WordChain)-1):
             #     chainMessage = f"({GameLogic.WordSim(word, GameLogic._WordChain[i+1], 3)})"
             appendStyle = "" if not i == len(GameLogic._WordChain) - 1 else "; animation: fade 0.3s"
-
-            with ui.card(align_items='left').style(f"height: 3rem; {BORDER_SETTINGS}" + appendStyle).classes(f'py-0 no-shadow w-full items-center'):
-                with ui.row().classes('gap-4 h-full w-full items-center'):
+            
+            with ToggleButton(linkedId=word, col1=DARK, col2=PRIMARY, on_click= lambda e, wordPass=word:DictionaryText.refresh(wordPass if e._state else "")).style(f"width: 100%; {BORDER_SETTINGS}" + appendStyle).classes(f'custom-button-content'):
+                with ui.row().style('width: 100%').classes('gap-4 h-full items-center justify-start text-left'):
                     ui.label(f'{i+1}').style(f'color: {TEXT_SECONDARY}')
                     ui.label(word).style(f'font-weight: normal; color: {TEXT_PRIMARY}')
                     ui.label(f'{chainMessage}').style(f'color: {TEXT_SECONDARY}').classes('ml-auto')
+
     
     ui.element().style("height: 8rem").classes('w-full')
     _ChainScrollArea.scroll_to(percent=100, axis='vertical', duration=0.5)
@@ -208,34 +224,9 @@ def WordChain():
 def StartTargetCards():
     #create cards for start and target
     with ui.row().classes('gap-0 items-center justify-between w-full'):
-            ToggleButton(GameLogic._StartWord, col1=DARK, col2=PRIMARY, onChange=DictionaryText.refresh).style(BORDER_SETTINGS)
+            ToggleButton(linkedId=GameLogic._StartWord, label=GameLogic._StartWord, col1=DARK, col2=PRIMARY, on_click= lambda e:DictionaryText.refresh(GameLogic._StartWord if e._state else "")).style(BORDER_SETTINGS+"; width: 40%")
             ui.icon("sym_r_keyboard_double_arrow_right", size="2rem", color=BORDER_COLOR)
-            ToggleButton(GameLogic._TargetWord, col1=DARK, col2=PRIMARY, onChange=DictionaryText.refresh).style(BORDER_SETTINGS)
-
-@ui.refreshable
-def RenderPage(page: int):
-    global _ChainScrollArea, _InputWordBox
-
-    if(PAGES[page] == "Normal"):
-        with ui.column().style(f'width: {GAME_WIDTH_VALUE}rem; justify-content: center; padding-top: 1rem').classes('h-full absolute-center'):
-            with ui.element().style('display: flex').classes('w-full justify-center items-center'):
-                ui.chip(f"Chain similar words to get to the target",icon="sym_r_link").props("outlined")
-
-            #show start and target
-            StartTargetCards()
-
-            _InputWordBox = ui.input(placeholder="chain a word..."
-                                ).props(f'autocomplete=off; autocapitalize=off; input-style="color: {BORDER_COLOR}"; autofocus'
-                                ).classes(f' gap-0 items-center w-full')
-            _InputWordBox.on('keydown', lambda e: GuessInput(_InputWordBox) if e.args['key'] == "Enter" else None)
-
-            #word chain scroll area
-            with ui.element().classes("h-screen w-full"):
-                with ui.scroll_area().style(f"height: 60%; border-color: {BORDER_COLOR}; border-width: 1px; border-radius: {BORDER_RADIUS}").classes(f'rounded w-full p-0') as scrollArea:
-                    _ChainScrollArea = scrollArea
-                    WordChain()
-                ui.element('div').classes('my-4')
-                DictionaryText()
+            ToggleButton(linkedId=GameLogic._TargetWord, label=GameLogic._TargetWord, col1=DARK, col2=PRIMARY, on_click= lambda e: DictionaryText.refresh(GameLogic._TargetWord if e._state else "")).style(BORDER_SETTINGS+"; width: 40%")
 
 @ui.refreshable
 def CreateEmbedDropdown():
@@ -268,69 +259,85 @@ def DictionaryText(word: str =""):
 def HeaderRow():
     with ui.row().style(f'height: {HEADER_HEIGHT}').classes('justify-between items-center w-full'):
         with ui.row().classes('justify-center'):
-            ui.toggle(PAGES, value=1, on_change=lambda e:RenderPage.refresh(e.value))
+            ui.toggle(PAGES, value=1)
             ui.button(icon='sym_r_undo', on_click=lambda e: UndoBtn())
             ui.button(icon='sym_r_navigate_next', on_click=lambda e: RestartBtn())
 
         ui.label('Linkedle').style(f'color: {TEXT_PRIMARY}; font-size: 250%; font-weight: bold').classes('absolute-center')
         with ui.row().classes('justify-center'):
-            CreateEmbedDropdown()
-            ui.button(icon='sym_r_code', on_click=lambda e: devDialog.open())
-            ui.button(icon='sym_r_info', on_click=lambda e: infoDialog.open())
+            # CreateEmbedDropdown()
+            ui.button(icon='sym_r_code', on_click=lambda e: _Dialogs['dev'].open())
+            ui.button(icon='sym_r_info', on_click=lambda e: _Dialogs['info'].open())
 
-#start of program
-if(__name__ == "__main__"):
+""" 
+-------------------------------------------------------------------------------
 
-    #load data and start game
-    GameLogic.LoadWordData(EMBED_OPTIONS[_EmbedOptionKey]["words"], EMBED_OPTIONS[_EmbedOptionKey]["banned"])
-    GameLogic.RestartGame()
+PAGES
 
-    #start of UI
+-------------------------------------------------------------------------------
+"""
+def GlobalSetup():
+    #global setup - colours
     ui.colors(primary=PRIMARY, secondary=SECONDARY, accent=ACCENT, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING, dark=DARK, dark_page=DARK_PAGE)
-    ui.dark_mode().enable()
-    
-    ui.add_head_html(r'''
-<style>
-    @keyframes fade {from {opacity: 0;} to {opacity: 1.0;}}
-</style>
-    ''') #fading
-    ui.add_head_html(r"""
-<style>
-body { 
-    overflow: hidden; 
-}
+    ui.dark_mode().enable() 
 
-.hidden-scrollbar {
+    #global setup - html
+    ui.add_head_html(
+    r'''
+    <style>
+    @keyframes fade {from {opacity: 0;} to {opacity: 1.0;}}
+    </style>
+    ''') #fading
+
+    ui.add_head_html(
+    r'''
+    <style>
+    body { 
+    overflow: hidden; 
+    }
+
+    .hidden-scrollbar {
     overflow-y: scroll;
     scrollbar-width: none; /* Firefox */
     -ms-overflow-style: none;  /* Internet Explorer 10+ */
-}
+    }
 
-.hidden-scrollbar::-webkit-scrollbar { /* WebKit */
+    .hidden-scrollbar::-webkit-scrollbar { /* WebKit */
     width: 0;
     height: 0;
-}
-</style>
-                     
-""")#disable scrolling
-    ui.add_head_html('''
-<style>
-:root {
-  --selection-color:''' + PRIMARY + ''';
-}
-::selection {
-  background: var(--selection-color);
-}
-</style>
-''')
-    
+    }
+    </style>
+    <style>
+    .custom-button-content .q-btn__content {
+        width: 100% !important;
+        padding: 0 !important;
+        display: flex !important;
+        align-items: stretch !important;
+    }
+    </style>
+    ''')#other html
+
+    ui.add_head_html(
+    '''
+    <style>
+    :root {
+    --selection-color:''' + PRIMARY + ''';
+    }
+    ::selection {
+    background: var(--selection-color);
+    }
+    </style>
+    ''') #selection color
+
+    #global setup - dialogs
+    global _Dialogs
     #winning dialogue setup
-    _WinDialog = ui.dialog()
-    _WinDialog.close()
+    _Dialogs['win'] = ui.dialog()
+    _Dialogs['win'].close()
 
     #info dialogue setup
-    infoDialog = ui.dialog()
-    with infoDialog, OverlayCard():
+    _Dialogs['info'] = ui.dialog()
+    with _Dialogs['info'], OverlayCard():
 
         descriptionCSS = f'color: #AAAAAA; font-style: normal; font-size: 90%'
         with ui.row().classes('justify-center items-center gap-1.5'):
@@ -338,22 +345,22 @@ body {
             ui.label("Info").style(f"color: {TEXT_PRIMARY}; font-weight: bold; font-size: 150%")
         with ui.expansion(text="How do I play?").style(f"color: {TEXT_PRIMARY}; width: 100%; font-style: oblique; border-radius: {BORDER_RADIUS}"):
             ui.label(f"""Your goal is to create a chain of related words to reach a 'target' word. 
-                     Start and ending words are determined randomly, and links must have a maximum
-                     similarity of {GameLogic.DISTANCE_CUTOFF} from the previous.""").style(descriptionCSS)
+                        Start and ending words are determined randomly, and links must have a maximum
+                        similarity of {GameLogic.DISTANCE_CUTOFF} from the previous.""").style(descriptionCSS)
         with ui.expansion(text='How are word similarities determined?').style(f"color: {TEXT_PRIMARY}; width: 100%; font-style: oblique; border-radius: {BORDER_RADIUS}"):
             ui.label("""Linkedle queries a database of over 70000 words that each have a corresponding vector. These vectors
-                     are tweaked through NLP models. A euclidean distance operation between two word vectors returns the similarity.
-                     Since similarity is based upon similar contexts, it doesn't necessarily translate to similar meaning.""").style(descriptionCSS)
+                        are tweaked through NLP models. A euclidean distance operation between two word vectors returns the similarity.
+                        Since similarity is based upon similar contexts, it doesn't necessarily translate to similar meaning.""").style(descriptionCSS)
         with ui.expansion(text='Who created Linkedle?').style(f"color: {TEXT_PRIMARY}; width: 100%; font-style: oblique; border-radius: {BORDER_RADIUS}"):
             ui.label("""Hudson Woolford programmed Linkedle in python for a Computer Science project at his school.""").style(descriptionCSS)
             ui.label("""Ted Boss acted as a playtester and provided valuable feedback throughout development""").style(descriptionCSS + f'; color: {TEXT_SECONDARY}')
         with ui.expansion(text='Have you made any other products?').style(f"color: {TEXT_PRIMARY}; width: 100%; font-style: oblique; border-radius: {BORDER_RADIUS}"):
             ui.label("""Hudson Woolford was a developer on Swingularity, an indie space golf game. Check it out!""").style(descriptionCSS)
             ui.link(text="Swingularity on STEAM", target="https://store.steampowered.com/app/3272450/Swingularity/", new_tab=True).style(descriptionCSS)
-    
-    #developer tools
-    devDialog = ui.dialog()
-    with devDialog, OverlayCard().classes('gap-2'):
+
+    #developer tools dialog
+    _Dialogs['dev'] = ui.dialog()
+    with _Dialogs['dev'], OverlayCard().classes('gap-2'):
         with ui.button(icon='palette', text='Site Color').classes('justify-center w-full'):
             picker = ui.color_picker(on_pick=lambda e: (ChangeSiteColor(color=e.color)))
             picker.q_color.props('default-view=palette no-header no-footer')
@@ -364,7 +371,7 @@ body {
             slider = ui.slider(min=0, max=1, step=0.01, value=GameLogic.DISTANCE_CUTOFF, on_change=lambda e: ChangeGameDistValue(e.value)).style('width: 60%')
             ui.input().bind_value(slider, 'value').style('width: 30%').props('outlined dense rounded')
         with ui.row().classes('w-full justify-between items-center gap-0'):
-            slider = ui.slider(min=18, max=100, step=1, on_change=lambda e: RenderPage.refresh(1)).style('width: 60%')
+            slider = ui.slider(min=18, max=100, step=1).style('width: 60%')
             slider.bind_value(globals(), 'GAME_WIDTH_VALUE')
             ui.input(placeholder="width").style('width: 30%').props('outlined dense rounded')
         with ui.row().classes('w-full justify-between items-center gap-0'):
@@ -372,13 +379,58 @@ body {
             inputBox = ui.input(placeholder="seed input").style('width: 80%').props('outlined dense rounded autocomplete=off autocapitalize=off')
             inputBox.on('keydown', lambda e: ui.notify(f"Changed seed to: {_Seed}") if e.args['key'] == "Enter" else None)
             inputBox.bind_value_to(globals(), "_Seed")
-            
+
+
+@ui.page('/')
+def HomePage():
+    global PRIMARY
+    global _ChainScrollArea, _InputWordBox
+
+    PRIMARY = app.storage.user.get('pageColor', PRIMARY)
+    GlobalSetup()
+
     #header
     with ui.header().style(f'background-color: {DARK}').style(f'font-size: 24; height: {HEADER_HEIGHT}').classes('py-0 w-screen font-weight-bold'):
         HeaderRow()
     
-    RenderPage(1)
 
-    
-ui.run(reload=False, title="Linkedle", show=False) #dont use reload (watch files) because leads to errors
+    with ui.column().style(f'width: {GAME_WIDTH_VALUE}rem; justify-content: center; padding-top: 1rem').classes('h-full absolute-center'):
+        with ui.element().style('display: flex').classes('w-full justify-center items-center'):
+            ui.chip(f"Chain similar words to get to the target",icon="sym_r_link").props("outlined")
+
+        #show start and target
+        StartTargetCards()
+
+        _InputWordBox = ui.input(placeholder="chain a word..."
+                            ).props(f'autocomplete=off; autocapitalize=off; input-style="color: {BORDER_COLOR}"; autofocus'
+                            ).classes(f' gap-0 items-center w-full')
+        _InputWordBox.on('keydown', lambda e: GuessInput(_InputWordBox) if e.args['key'] == "Enter" else None)
+
+        #word chain scroll area
+        with ui.element().classes("h-screen w-full"):
+            with ui.scroll_area().style(f"height: 60%; border-color: {BORDER_COLOR}; border-width: 1px; border-radius: {BORDER_RADIUS}").classes(f'rounded w-full') as scrollArea:
+                _ChainScrollArea = scrollArea
+                WordChain()
+            ui.element('div').classes('my-4')
+            DictionaryText()
+
+@ui.page('/dev')
+def DevPage():
+    ui.dark_mode().enable() 
+    ui.label('nice try')
+
+
+""" 
+-------------------------------------------------------------------------------
+
+START OF LOGIC
+
+-------------------------------------------------------------------------------
+"""
+
+#load data and start game
+GameLogic.LoadWordData(EMBED_OPTIONS[_EmbedOptionKey]["words"], EMBED_OPTIONS[_EmbedOptionKey]["banned"])
+GameLogic.RestartGame()
+
+ui.run(reload=False, title="Linkedle", show=False, storage_secret='SWINGULARITY') #dont use reload (watch files) because leads to errors
 

@@ -1,35 +1,45 @@
 from nicegui import ui
+from typing import Callable, Optional
 
 class ToggleButton(ui.button):
-    _ButtonsGroup = []
+    _WordButtons = {    }
 
-    def __init__(self, label, onChange = None, col1: str= "#000000", col2: str= "#111111",  *args, **kwargs) -> None:
+    def __init__(self, linkedId, label: str = None, on_click: Optional[Callable]= None, col1: str= "#000000", col2: str= "#111111",  *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._state = False
+        self.link = linkedId
         self.label = label
         self.col1 = col1
         self.col2 = col2
-        self.onChange = onChange
         self.on('click', self.toggle)
-        ToggleButton._ButtonsGroup.append(self)
-        with self.style(f"height: 3rem; width: 40%; box-shadow: none !important; text-transform: none; display: flex; justify-content: center; align-items: center;").props('unelevated'):
-            ui.label(label).style(f'font-weight: normal')
+        if(on_click != None):
+            self.on('click', lambda: on_click(self))
+        
+        if(linkedId in ToggleButton._WordButtons.keys()):
+            ToggleButton._WordButtons[linkedId].append(self)
+        else:
+            ToggleButton._WordButtons[linkedId] = [self]
+        with self.style(f"height: 3rem; box-shadow: none !important; text-transform: none;").props('unelevated'):
+            if(label != None):
+                ui.label(label).style(f'font-weight: normal')
+                
 
     def toggle(self) -> None:
         """Toggle the button state."""
         if not self._state:
-            # Only toggle this button on if it's currently off
-            self._state = True
-            for button in ToggleButton._ButtonsGroup:
-                if button is not self:
-                    button._state = False  # Turn off all other buttons
-                    button.update()
-            self.onChange(self.label) 
+            # print(self.link)
+            #only toggle this button on if it's currently off
+            for link in ToggleButton._WordButtons.keys():
+                enable = link == self.link
+                for btn in ToggleButton._WordButtons[link]:
+                    # print(enable)
+                    btn._state = enable  #enable or disable buttons
+                    btn.update()
         else:
-            self.onChange("") 
-            self._state = False  # Allow the button to be turned off independently   
+            for btn in ToggleButton._WordButtons[self.link]:
+                    btn._state = False  #turn off btns
+                    btn.update()
 
-        self.update()
 
     
     def is_toggled(self) -> bool:

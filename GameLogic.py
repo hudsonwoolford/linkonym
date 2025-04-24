@@ -173,7 +173,7 @@ def LoadWordData(wordPath: str, bannedPath: str):
     # _WordData["vocab"] = StanzaUtility.LemmatarizedDict(_WordData["vocab"]) #get lemma only
 
 
-# InitializeGame()
+# LoadWordData('output/WikipediaWData.pt','output/WikipediaBData.pt')
 # while True:
 #     print(ClosestWords(input("Word: "), amount=50))
 
