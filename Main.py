@@ -110,7 +110,7 @@ Here's my word chain from '{GameLogic._StartWord}' to '{GameLogic._TargetWord}':
 
 Score: {len(GameLogic._WordChain)-1} 🔥
 
-You can play the same seed here: {GameLogic._Seed}
+You can play the same game here: linkedle.me/{GameLogic._Seed}
 ----------
 """)
     
@@ -128,11 +128,12 @@ def ChangeSiteColor(color: str):
     ui.notify(f"Changed site color to {PRIMARY}", timeout=500)
 
 def RestartBtn():
-    GameLogic.RestartGame(_Seed if _UseSeed else None)
-    DictionaryText.refresh()
-    StartTargetCards.refresh()
-    WordChain.refresh()
-    _Dialogs['win'].clear()
+    ui.navigate.to('/'+_Seed if _UseSeed else str(GameLogic.random.randint(0, 50000)))
+    # GameLogic.RestartGame(_Seed if _UseSeed else None)
+    # DictionaryText.refresh()
+    # StartTargetCards.refresh()
+    # WordChain.refresh()
+    # _Dialogs['win'].clear()
 
 #when user inputs guess from textbox
 def GuessInput(inputBox: ui.input):
@@ -380,14 +381,16 @@ def GlobalSetup():
             inputBox.on('keydown', lambda e: ui.notify(f"Changed seed to: {_Seed}") if e.args['key'] == "Enter" else None)
             inputBox.bind_value_to(globals(), "_Seed")
 
-
-@ui.page('/')
-def HomePage():
+@ui.page('/{seed}')
+def GamePage(seed: str):
     global PRIMARY
     global _ChainScrollArea, _InputWordBox
-
     PRIMARY = app.storage.user.get('pageColor', PRIMARY)
     GlobalSetup()
+
+    #load data and start game
+    GameLogic.LoadWordData(EMBED_OPTIONS[_EmbedOptionKey]["words"], EMBED_OPTIONS[_EmbedOptionKey]["banned"])
+    GameLogic.RestartGame(seed=seed)
 
     #header
     with ui.header().style(f'background-color: {DARK}').style(f'font-size: 24; height: {HEADER_HEIGHT}').classes('py-0 w-screen font-weight-bold'):
@@ -414,6 +417,11 @@ def HomePage():
             ui.element('div').classes('my-4')
             DictionaryText()
 
+@ui.page('/')
+def HomePage():
+    #redirect to daily / random game
+    ui.navigate.to('/' + str(GameLogic.random.randint(0, 50000)))
+
 @ui.page('/dev')
 def DevPage():
     ui.dark_mode().enable() 
@@ -423,14 +431,10 @@ def DevPage():
 """ 
 -------------------------------------------------------------------------------
 
-START OF LOGIC
+START OF AUTO-INDEX OR LOGIC
 
 -------------------------------------------------------------------------------
 """
-
-#load data and start game
-GameLogic.LoadWordData(EMBED_OPTIONS[_EmbedOptionKey]["words"], EMBED_OPTIONS[_EmbedOptionKey]["banned"])
-GameLogic.RestartGame()
 
 ui.run(reload=False, title="Linkedle", show=False, storage_secret='SWINGULARITY') #dont use reload (watch files) because leads to errors
 
