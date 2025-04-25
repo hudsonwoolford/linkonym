@@ -13,6 +13,7 @@ _UseSeed: bool = False
 _Dialogs: dict = {}
 
 #UI colours and parameters
+GAME_NAME = "Lexichain"
 BORDER_COLOR = '#AAAAAA'
 BORDER_WIDTH = '0px'
 BORDER_RADIUS = '10px'
@@ -98,7 +99,7 @@ def CopyClipboardGame():
 
     pyperclip.copy(f"""
 ----------
-Check out my Linkedle game! 🙂
+Check out my {GAME_NAME} game! 🙂
 
 Here's my word chain from '{GameLogic._StartWord}' to '{GameLogic._TargetWord}': 🔗
 
@@ -106,11 +107,38 @@ Here's my word chain from '{GameLogic._StartWord}' to '{GameLogic._TargetWord}':
 
 Score: {len(GameLogic._WordChain)-1} 🔥
 
-You can play the same game here: linkedle.me/{GameLogic._Seed}
+You can play the same game here: {GAME_NAME}.me/{GameLogic._Seed}
 ----------
 """)
     
     ui.notify("Copied game to clipboard")
+
+from asyncio import sleep
+from nicegui.events import GenericEventArguments
+import asyncio
+
+async def Hint():
+    lastWord = GameLogic._WordChain[-1]
+
+    notif = ui.notification(timeout=None)
+    notif.message = 'Calculating hint...'
+    notif.spinner = True
+
+    await sleep(0.1)  # Let the frontend render the notification
+
+    # Run HintWord in a thread so it doesn't block
+    loop = asyncio.get_running_loop()
+    hint = await loop.run_in_executor(None, GameLogic.HintWord, lastWord, GameLogic._TargetWord, 0.15)
+
+    GameLogic.GuessWord(hint)
+    WordChain.refresh(True)
+
+    notif.spinner = False
+    notif.message = 'Done!'
+    notif.type = 'positive'
+    await asyncio.sleep(0.5)
+    notif.dismiss()
+
 
 def ChangeSiteColor(color: str):
     global PRIMARY
@@ -259,10 +287,23 @@ def HeaderRow():
             ui.button(icon='sym_r_undo', on_click=lambda e: UndoBtn()).style('width: 10%')
             ui.button(icon='sym_r_navigate_next', on_click=lambda e: RestartBtn()).style('width: 10%')
 
-        ui.label('Linkedle').style(f'color: {TEXT_PRIMARY}; font-size: 250%; font-weight: bold').classes('absolute-center')
+        ui.label(f'{GAME_NAME}').style(f'color: {TEXT_PRIMARY}; font-size: 250%; font-weight: bold').classes('absolute-center')
         with ui.row().classes('justify-end').style('width: 30%'):
             # CreateEmbedDropdown()
-            ui.button(icon='sym_r_code', on_click=lambda e: _Dialogs['dev'].open()).style('width: 10%')
+            with ui.dropdown_button().style('width: 10%').props('dropdown-icon=sym_r_more_vert no-icon-animation') as dropdownButton:
+                with ui.item(on_click= Hint) as specialHintItem:
+                    specialHintItem.on_click(lambda e: dropdownButton.close())
+                    with ui.row().classes('justify-center items-center gap-1.5'):
+                        ui.icon('sym_r_lightbulb', color=TEXT_PRIMARY, size='125%')
+                        ui.label("Hint").style(f"color: {TEXT_PRIMARY}")
+                with ui.item(on_click= lambda e: (ui.notify('Implement give up'), dropdownButton.close())):
+                    with ui.row().classes('justify-center items-center gap-1.5'):
+                        ui.icon('sym_r_flag', color=TEXT_PRIMARY, size='125%')
+                        ui.label("Give up").style(f"color: {TEXT_PRIMARY}")
+                with ui.item(on_click=lambda e: (_Dialogs['settings'].open(), dropdownButton.close())):
+                    with ui.row().classes('justify-center items-center gap-1.5'):
+                        ui.icon('sym_r_build', color=TEXT_PRIMARY, size='125%')
+                        ui.label("Settings").style(f"color: {TEXT_PRIMARY}")
             ui.button(icon='sym_r_info', on_click=lambda e: _Dialogs['info'].open()).style('width: 10%')
 
 """ 
@@ -344,37 +385,33 @@ def GlobalSetup():
                         Start and ending words are determined randomly, and links must have a maximum
                         similarity of {GameLogic.DISTANCE_CUTOFF} from the previous.""").style(descriptionCSS)
         with ui.expansion(text='How are word similarities determined?').style(f"color: {TEXT_PRIMARY}; width: 100%; font-style: oblique; border-radius: {BORDER_RADIUS}"):
-            ui.label("""Linkedle queries a database of over 70000 words that each have a corresponding vector. These vectors
+            ui.label(f"""{GAME_NAME} queries a database of over 70000 words that each have a corresponding vector. These vectors
                         are tweaked through NLP models. A euclidean distance operation between two word vectors returns the similarity.
                         Since similarity is based upon similar contexts, it doesn't necessarily translate to similar meaning.""").style(descriptionCSS)
-        with ui.expansion(text='Who created Linkedle?').style(f"color: {TEXT_PRIMARY}; width: 100%; font-style: oblique; border-radius: {BORDER_RADIUS}"):
-            ui.label("""Hudson Woolford programmed Linkedle in python for a Computer Science project at his school.""").style(descriptionCSS)
+        with ui.expansion(text=f'Who created {GAME_NAME}?').style(f"color: {TEXT_PRIMARY}; width: 100%; font-style: oblique; border-radius: {BORDER_RADIUS}"):
+            ui.label(f"""Hudson Woolford programmed {GAME_NAME} in python for a Computer Science project at his school.""").style(descriptionCSS)
             ui.label("""Ted Boss acted as a playtester and provided valuable feedback throughout development""").style(descriptionCSS + f'; color: {TEXT_SECONDARY}')
         with ui.expansion(text='Have you made any other products?').style(f"color: {TEXT_PRIMARY}; width: 100%; font-style: oblique; border-radius: {BORDER_RADIUS}"):
             ui.label("""Hudson Woolford was a developer on Swingularity, an indie space golf game. Check it out!""").style(descriptionCSS)
             ui.link(text="Swingularity on STEAM", target="https://store.steampowered.com/app/3272450/Swingularity/", new_tab=True).style(descriptionCSS)
 
-    #developer tools dialog
-    _Dialogs['dev'] = ui.dialog()
-    with _Dialogs['dev'], OverlayCard().classes('gap-2'):
-        with ui.button(icon='palette', text='Site Color').classes('justify-center w-full'):
-            picker = ui.color_picker(on_pick=lambda e: (ChangeSiteColor(color=e.color)))
-            picker.q_color.props('default-view=palette no-header no-footer')
-        ui.label('Max Distance:').style('font-weight: bold')
-        def ChangeGameDistValue(val: float):
-            GameLogic.DISTANCE_CUTOFF = val
-        with ui.row().classes('w-full justify-between items-center gap-0'):
-            slider = ui.slider(min=0, max=1, step=0.01, value=GameLogic.DISTANCE_CUTOFF, on_change=lambda e: ChangeGameDistValue(e.value)).style('width: 60%')
-            ui.input().bind_value(slider, 'value').style('width: 30%').props('outlined dense rounded')
-        with ui.row().classes('w-full justify-between items-center gap-0'):
-            slider = ui.slider(min=18, max=100, step=1).style('width: 60%')
-            slider.bind_value(globals(), 'GAME_WIDTH_VALUE')
-            ui.input(placeholder="width").style('width: 30%').props('outlined dense rounded')
-        with ui.row().classes('w-full justify-between items-center gap-0'):
-            ui.switch(value=False).bind_value(globals(), '_UseSeed').style('width: 10%')
-            inputBox = ui.input(placeholder="seed input").style('width: 80%').props('outlined dense rounded autocomplete=off autocapitalize=off')
-            inputBox.on('keydown', lambda e: ui.notify(f"Changed seed to: {_Seed}") if e.args['key'] == "Enter" else None)
-            inputBox.bind_value_to(globals(), "_Seed")
+    #settings tools dialog
+    _Dialogs['settings'] = ui.dialog()
+    with _Dialogs['settings'], OverlayCard().classes('gap-4 justify-start'):
+        with ui.row().classes('justify-center items-center gap-1.5'):
+            ui.icon('sym_r_build', size="150%", color=TEXT_PRIMARY)
+            ui.label("Settings").style(f"color: {TEXT_PRIMARY}; font-weight: bold; font-size: 150%")
+        ui.label('Site color:')
+        picker = ui.element('q-color').props('default-view=palette no-header no-footer')
+        picker.on('update:model-value', lambda color: ChangeSiteColor(color.args))
+        # picker.q_color.props('default-view=palette no-header no-footer')
+        
+        ui.button(icon='sym_r_delete', text='Clear Data').classes('justify-center w-full')
+            
+@ui.page('/dev')
+def DevPage():
+    ui.dark_mode().enable() 
+    ui.label('nice try')
 
 @ui.page('/{seed}')
 def GamePage(seed: str):
@@ -417,10 +454,6 @@ def HomePage():
     #redirect to daily / random game
     ui.navigate.to('/' + str(GameLogic.random.randint(0, 50000)))
 
-@ui.page('/dev')
-def DevPage():
-    ui.dark_mode().enable() 
-    ui.label('nice try')
 
 
 """ 
@@ -431,5 +464,5 @@ START OF AUTO-INDEX OR LOGIC
 -------------------------------------------------------------------------------
 """
 
-ui.run(reload=False, title="Linkedle", show=False, storage_secret='SWINGULARITY') #dont use reload (watch files) because leads to errors
+ui.run(reload=False, title=f"{GAME_NAME}", show=False, storage_secret='SWINGULARITY') #dont use reload (watch files) because leads to errors
 

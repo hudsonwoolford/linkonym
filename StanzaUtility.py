@@ -3,6 +3,16 @@ import stanza.pipeline
 import FileManager
 
 
+def GetPretrainDict() -> dict:
+    lang = 'en'
+
+    #find torch embed file
+    modelDir = stanza.resources.common.DEFAULT_MODEL_DIR
+    embedPath = f"{modelDir}\{lang}\pretrain\conll17.pt"
+
+    #load data
+    data = torch.load(embedPath)
+    return data
 
 def WordInfoJson(word2ID: dict, fileName: str, filter: list = list()) -> None:
     """

@@ -3,6 +3,7 @@ from torch.nn import CosineSimilarity
 from torch import load as torchLoad
 import random
 import datetime
+import FileManager
 
 DISTANCE_CUTOFF = 0.325 #max distance for word chain
 TERMINAL_RANGE = range(100, 10000)
@@ -31,6 +32,32 @@ def RandomKey(dic: dict, dataRange: range = None):
     else:
         dataRange = range(0, min(len(keyList), dataRange.stop), dataRange.step)
     return str(keyList[random.randrange(dataRange.start, dataRange.stop, dataRange.step)])
+
+def HintWord(w1: str, w2: str, maxDistanceJump: float = 0.25) -> str:
+    t1 = _WordData['emb'][_WordData['vocab'][w1]['id']]
+    t2 = _WordData['emb'][_WordData['vocab'][w2]['id']]
+    
+    twentyClosest = ClosestWords(w1, 20)
+
+    currentDist = TensorCosSimilarity(t1, t2)
+    bestGuess = ("word", 1000)
+    #calculate distances from all closest to the target
+    for worddist in twentyClosest:
+        #barriers from being valid
+        if(worddist[0] == w2): continue #cant be target
+        if(worddist[1] > DISTANCE_CUTOFF): continue #cant be a guess out of range
+        if(worddist[0] in _WordChain): continue #cant be already guessed
+
+        t = _WordData['emb'][_WordData['vocab'][worddist[0]]['id']]
+        dist = TensorCosSimilarity(t, t2)
+
+        #skip if the hint is too good
+        if(currentDist - dist > maxDistanceJump): continue
+
+        if(bestGuess[1] > dist):
+            bestGuess = (worddist[0], dist)
+
+    return bestGuess[0]
 
 def TensorCosSimilarity(t1: Tensor, t2: Tensor) -> float:
     cos = CosineSimilarity(dim=0)
@@ -146,16 +173,15 @@ def GenerateStartEndWords(minDistance: float = 0.325) -> tuple:
     
 
 
-    _WordChain.append(start)
     _StartWord = start
     _TargetWord = end
     return start, end
 
-def RestartGame(seed: int = None):
+def RestartGame(seed = None):
     """
     Resets local game variables and generates new start and target words
     """
-    global _TargetWord, _WordChain, _Seed
+    global _TargetWord, _WordChain, _Seed, _StartWord
 
     # _seed = random.randint(-5000000, 5000000)
     
@@ -163,11 +189,22 @@ def RestartGame(seed: int = None):
         _Seed = datetime.datetime.now().microsecond + datetime.datetime.now().second + datetime.datetime.now().minute
     else:
         _Seed = seed
+
     random.seed(str(_Seed))
 
     _TargetWord = ""
     _WordChain = []
-    GenerateStartEndWords(minDistance=0.5)
+
+    if(str(_Seed).lower() !='daily'):
+        GenerateStartEndWords(minDistance=0.5)
+    else:
+        dailyGameDict = FileManager.LoadJsonDict('output/DailyGames.json')
+        terminalWords = dailyGameDict[str(datetime.datetime.now().date())].split(', ')
+        _StartWord = terminalWords[0]
+        _TargetWord = terminalWords[1]
+
+    _WordChain.append(_StartWord)
+
 
 def LoadWordData(wordPath: str, bannedPath: str):
     global _WordData, _BannedData, _nlp 
