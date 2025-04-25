@@ -117,6 +117,34 @@ from asyncio import sleep
 from nicegui.events import GenericEventArguments
 import asyncio
 
+async def GiveUp():
+    notif = ui.notification(timeout=None)
+    notif.message = 'Solving...'
+    notif.spinner = True
+
+    await sleep(0.1)  #let the nicegui render the notification
+
+    #run HintWord in a thread so it doesn't block
+    loop = asyncio.get_running_loop()
+    for i in range(0, 20):
+        lastWord = GameLogic._WordChain[-1]
+        hint = await loop.run_in_executor(None, GameLogic.HintWord, lastWord, GameLogic._TargetWord, 0.15)
+        GameLogic.GuessWord(hint)
+        WordChain.refresh(True)
+        if(GameLogic.WordSim(hint, GameLogic._TargetWord) < GameLogic.DISTANCE_CUTOFF):
+            GameLogic.GuessWord(GameLogic._TargetWord)
+            WordChain.refresh(True)
+            break
+
+    notif.spinner = False
+    notif.message = 'Done!'
+    notif.type = 'positive'
+    await asyncio.sleep(0.5)
+    notif.dismiss()
+
+    WinDialog(_Dialogs['win'])
+
+
 async def Hint():
     lastWord = GameLogic._WordChain[-1]
 
@@ -124,13 +152,18 @@ async def Hint():
     notif.message = 'Calculating hint...'
     notif.spinner = True
 
-    await sleep(0.1)  # Let the frontend render the notification
+    if(GameLogic.WordSim(lastWord, GameLogic._TargetWord) < GameLogic.DISTANCE_CUTOFF):
+        GameLogic.GuessWord(GameLogic._TargetWord)
+        WinDialog(_Dialogs['win'])
+    else:
+        await sleep(0.1)  #let the nicegui render the notification
+        
+        #run HintWord in a thread so it doesn't block
+        loop = asyncio.get_running_loop()
+        hint = await loop.run_in_executor(None, GameLogic.HintWord, lastWord, GameLogic._TargetWord, 0.15)
 
-    # Run HintWord in a thread so it doesn't block
-    loop = asyncio.get_running_loop()
-    hint = await loop.run_in_executor(None, GameLogic.HintWord, lastWord, GameLogic._TargetWord, 0.15)
+        GameLogic.GuessWord(hint)
 
-    GameLogic.GuessWord(hint)
     WordChain.refresh(True)
 
     notif.spinner = False
@@ -184,9 +217,11 @@ def GuessInput(inputBox: ui.input):
     
 #dialog card when you win the game
 def WinDialog(dialog: ui.dialog):
+    #disable input
+    _InputWordBox.props('disable')
     #store parameters
 
-    ##set all parameters
+    #set all parameters
     with dialog, OverlayCard():
         with ui.row().classes('justify-center items-center gap-1.5'):
             ui.icon('sym_r_emoji_events', size="150%", color=TEXT_PRIMARY)
@@ -296,7 +331,8 @@ def HeaderRow():
                     with ui.row().classes('justify-center items-center gap-1.5'):
                         ui.icon('sym_r_lightbulb', color=TEXT_PRIMARY, size='125%')
                         ui.label("Hint").style(f"color: {TEXT_PRIMARY}")
-                with ui.item(on_click= lambda e: (ui.notify('Implement give up'), dropdownButton.close())):
+                with ui.item(on_click=GiveUp) as specialGiveUpItem:
+                    specialGiveUpItem.on_click(lambda e: dropdownButton.close())
                     with ui.row().classes('justify-center items-center gap-1.5'):
                         ui.icon('sym_r_flag', color=TEXT_PRIMARY, size='125%')
                         ui.label("Give up").style(f"color: {TEXT_PRIMARY}")
