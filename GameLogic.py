@@ -23,6 +23,8 @@ _Seed = 0
 _TargetWord = "" #current target word
 _StartWord = "" #current start word
 _WordChain = [] #current chain of words
+_NumHints = 0 #current number of hints
+_GivenUp = False #given up in current game
 
 def RandomKey(dic: dict, dataRange: range = None):
     keyList =  list(dic.keys())
@@ -34,6 +36,8 @@ def RandomKey(dic: dict, dataRange: range = None):
     return str(keyList[random.randrange(dataRange.start, dataRange.stop, dataRange.step)])
 
 def HintWord(w1: str, w2: str, maxDistanceJump: float = 0.25) -> str:
+    global _NumHints
+
     t1 = _WordData['emb'][_WordData['vocab'][w1]['id']]
     t2 = _WordData['emb'][_WordData['vocab'][w2]['id']]
     
@@ -57,6 +61,7 @@ def HintWord(w1: str, w2: str, maxDistanceJump: float = 0.25) -> str:
         if(bestGuess[1] > dist):
             bestGuess = (worddist[0], dist)
 
+    _NumHints += 1 #increment global hints
     return bestGuess[0]
 
 def TensorCosSimilarity(t1: Tensor, t2: Tensor) -> float:
@@ -181,7 +186,7 @@ def RestartGame(seed = None):
     """
     Resets local game variables and generates new start and target words
     """
-    global _TargetWord, _WordChain, _Seed, _StartWord
+    global _TargetWord, _WordChain, _Seed, _StartWord, _NumHints, _GivenUp
 
     # _seed = random.randint(-5000000, 5000000)
     
@@ -194,6 +199,8 @@ def RestartGame(seed = None):
 
     _TargetWord = ""
     _WordChain = []
+    _NumHints = 0
+    _GivenUp = False
 
     if(str(_Seed).lower() !='daily'):
         GenerateStartEndWords(minDistance=0.5)

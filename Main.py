@@ -106,6 +106,7 @@ Here's my word chain from '{GameLogic._StartWord}' to '{GameLogic._TargetWord}':
 {chain}
 
 Score: {len(GameLogic._WordChain)-1} 🔥
+Hints: {GameLogic._NumHints} 💡
 
 You can play the same game here: {GAME_NAME}.me/{GameLogic._Seed}
 ----------
@@ -133,6 +134,7 @@ async def GiveUp():
         WordChain.refresh(True)
         if(GameLogic.WordSim(hint, GameLogic._TargetWord) < GameLogic.DISTANCE_CUTOFF):
             GameLogic.GuessWord(GameLogic._TargetWord)
+            GameLogic._NumHints += 1
             WordChain.refresh(True)
             break
 
@@ -141,7 +143,8 @@ async def GiveUp():
     notif.type = 'positive'
     await asyncio.sleep(0.5)
     notif.dismiss()
-
+    
+    GameLogic._GivenUp = True
     WinDialog(_Dialogs['win'])
 
 
@@ -177,7 +180,7 @@ def ChangeSiteColor(color: str):
     global PRIMARY
     PRIMARY = color
     ui.colors(primary=PRIMARY, secondary=SECONDARY, accent=ACCENT, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING, dark=DARK, dark_page=DARK_PAGE)
-    app.storage.user['pageColor'] = color
+    app.storage.browser['pageColor'] = color
     ui.run_javascript(f'''
     document.documentElement.style.setProperty('--selection-color', '{PRIMARY}');
     ''')
@@ -224,9 +227,13 @@ def WinDialog(dialog: ui.dialog):
     #set all parameters
     with dialog, OverlayCard():
         with ui.row().classes('justify-center items-center gap-1.5'):
-            ui.icon('sym_r_emoji_events', size="150%", color=TEXT_PRIMARY)
-            ui.label("You won!").style(f"color: {TEXT_PRIMARY}; font-weight: bold; font-size: 150%")
-        ui.chip(f"{len(GameLogic._WordChain)-1} links", icon='sym_r_link')
+            ui.icon('sym_r_emoji_events' if not GameLogic._GivenUp else 'sym_r_flag', size="150%", color=TEXT_PRIMARY)
+            ui.label("You won!" if not GameLogic._GivenUp else "Gave up!").style(f"color: {TEXT_PRIMARY}; font-weight: bold; font-size: 150%")
+
+        with ui.row().classes('justify-center items-center gap-1.5'):
+            ui.chip(f"{len(GameLogic._WordChain)-1} links", icon='sym_r_link')
+
+            ui.chip(f"{GameLogic._NumHints} hint" + ('s' if GameLogic._NumHints > 1 else ''), icon='sym_r_lightbulb')
 
         with ui.scroll_area().style(f'border-color: {BORDER_COLOR}; border-radius: {BORDER_RADIUS}; border-width: 1px; width: 90%').classes('h-full') as scrollArea:
             with ui.timeline(side='right', layout='dense').classes('gap-0 p-0 h-full'):
@@ -300,17 +307,31 @@ def DictionaryText(word: str =""):
     if(word != ''):
         ui.separator().style(f'background-color: {BORDER_COLOR}; animation: fade 0.5s')            
         ui.element('div').classes('my-2')
+
+        definitionNotFound = False
         definitions = WordDictionary.getRecordsAdvanced(word)
-        if(len(definitions.keys())==0): 
+        if(definitions == None or len(definitions.keys())==0): 
             word = GameLogic._WordData['vocab'][word]['lemma']
             definitions = WordDictionary.getRecordsAdvanced(word)
+
+        if(definitions == None or len(definitions.keys())==0):
+            definitionNotFound = True
+            definitions = {
+                'definition_1' : f'https://www.google.com/search?q=define%20{word} to find the meaning',
+                'pos_1' : 'No available definition'
+            }
+        
         ui.label(word).style(f'font-size: 250%; font-weight: bold; color: {TEXT_PRIMARY}; text-align: left; animation: fade 1s')
         total = min(NUM_DEFINITIONS, sum(1 for key in definitions if key.startswith("definition_")))
         for i in range(1, total+1):
             ui.element('div').classes('my-2')
             ui.label(f"{i}. {definitions[f'pos_{i}']}").style(f'color: {TEXT_PRIMARY}; text-align: left; animation: fade 1s').classes('text-italic')
             ui.element('div').classes('my-2')
-            ui.label(definitions[f'definition_{i}']).style(f' color: {TEXT_PRIMARY}; text-align: left; animation: fade 1s')
+
+            if(not definitionNotFound):
+                ui.label(definitions[f'definition_{i}']).style(f' color: {TEXT_PRIMARY}; text-align: left; animation: fade 1s')
+            else:
+                ui.link(text = f"Please visit https://www.google.com/search?q=define%20{word} for the meaning", target=f'https://www.google.com/search?q=define%20{word}', new_tab=True).style(f' color: {TEXT_PRIMARY}; text-align: left; animation: fade 1s')
         
         ui.element('div').classes('my-4')
         ui.separator().style(f'background-color: {BORDER_COLOR}; animation: fade 0.5s')
@@ -453,7 +474,7 @@ def DevPage():
 def GamePage(seed: str):
     global PRIMARY
     global _ChainScrollArea, _InputWordBox
-    PRIMARY = app.storage.user.get('pageColor', PRIMARY)
+    PRIMARY = app.storage.browser.get('pageColor', PRIMARY)
     GlobalSetup()
 
     #load data and start game
