@@ -89,14 +89,7 @@ def ProfileFunction(func, *args, **kwargs) -> tuple:
     result = func(*args, **kwargs)
     return result, time.perf_counter()-prevPerf
 
-def RandomKey(dic: dict, dataRange: range = None):
-    keyList =  list(dic.keys())
 
-    if(dataRange == None):
-        dataRange = range(0, len(keyList))
-    else:
-        dataRange = range(0, min(len(keyList), dataRange.stop), dataRange.step)
-    return str(keyList[random.randrange(dataRange.start, dataRange.stop, dataRange.step)])
 
 def CreatePTFile(wordInfo: dict, embeds: list, path: str):
     finalDict = {"vocab":{}}

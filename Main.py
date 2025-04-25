@@ -12,10 +12,6 @@ _Seed: str = "Seed"
 _UseSeed: bool = False
 _Dialogs: dict = {}
 
-PAGES = {
-    1 : "Normal",
-    2 : "Themed"
-}
 #UI colours and parameters
 BORDER_COLOR = '#AAAAAA'
 BORDER_WIDTH = '0px'
@@ -144,7 +140,7 @@ def GuessInput(inputBox: ui.input):
         valid, message = GameLogic.GuessWord(guess) #get result of guessing the word, valid if it is within distance
 
         if(valid):
-            WordChain.refresh()
+            WordChain.refresh(True)
             ui.notify(message, type='positive', timeout=1500, position='bottom', badgeColor=POSITIVE, badgeTextColor=TEXT_PRIMARY)
             if(guess == GameLogic._TargetWord):
                 WinDialog(_Dialogs['win'])
@@ -188,11 +184,11 @@ def SelectEmbedOption(option: str):
     _EmbedOptionKey = option
     CreateEmbedDropdown.refresh()
     GameLogic.LoadWordData(EMBED_OPTIONS[_EmbedOptionKey]["words"], EMBED_OPTIONS[_EmbedOptionKey]["banned"])
-    WordChain.refresh()
+    WordChain.refresh(False)
 
 def UndoBtn():
     GameLogic._WordChain = GameLogic._WordChain[:-1] if len(GameLogic._WordChain) > 1 else GameLogic._WordChain
-    WordChain.refresh()
+    WordChain.refresh(False)
 
 """ 
 -------------------------------------------------------------------------------
@@ -202,14 +198,14 @@ REFRESHABLE ELEMENTS
 -------------------------------------------------------------------------------
 """
 @ui.refreshable
-def WordChain():
+def WordChain(fadeIn: bool = True):
     #create a card for each word
     with ui.column().classes("w-full gap-2"):
         for i, word in enumerate(GameLogic._WordChain):
             chainMessage = f"({GameLogic.WordSim(word, GameLogic._TargetWord, 3)}) to '{GameLogic._TargetWord}'"
             # if(not i == len(GameLogic._WordChain)-1):
             #     chainMessage = f"({GameLogic.WordSim(word, GameLogic._WordChain[i+1], 3)})"
-            appendStyle = "" if not i == len(GameLogic._WordChain) - 1 else "; animation: fade 0.3s"
+            appendStyle = "" if i != len(GameLogic._WordChain) - 1 or not fadeIn  else "; animation: fade 0.3s"
             
             with ToggleButton(linkedId=word, col1=DARK, col2=PRIMARY, on_click= lambda e, wordPass=word:DictionaryText.refresh(wordPass if e._state else "")).style(f"width: 100%; {BORDER_SETTINGS}" + appendStyle).classes(f'custom-button-content'):
                 with ui.row().style('width: 100%').classes('gap-4 h-full items-center justify-start text-left'):
@@ -259,16 +255,15 @@ def DictionaryText(word: str =""):
 @ui.refreshable
 def HeaderRow():
     with ui.row().style(f'height: {HEADER_HEIGHT}').classes('justify-between items-center w-full'):
-        with ui.row().classes('justify-center'):
-            ui.toggle(PAGES, value=1)
-            ui.button(icon='sym_r_undo', on_click=lambda e: UndoBtn())
-            ui.button(icon='sym_r_navigate_next', on_click=lambda e: RestartBtn())
+        with ui.row().classes('justify-start').style('width: 30%'):
+            ui.button(icon='sym_r_undo', on_click=lambda e: UndoBtn()).style('width: 10%')
+            ui.button(icon='sym_r_navigate_next', on_click=lambda e: RestartBtn()).style('width: 10%')
 
         ui.label('Linkedle').style(f'color: {TEXT_PRIMARY}; font-size: 250%; font-weight: bold').classes('absolute-center')
-        with ui.row().classes('justify-center'):
+        with ui.row().classes('justify-end').style('width: 30%'):
             # CreateEmbedDropdown()
-            ui.button(icon='sym_r_code', on_click=lambda e: _Dialogs['dev'].open())
-            ui.button(icon='sym_r_info', on_click=lambda e: _Dialogs['info'].open())
+            ui.button(icon='sym_r_code', on_click=lambda e: _Dialogs['dev'].open()).style('width: 10%')
+            ui.button(icon='sym_r_info', on_click=lambda e: _Dialogs['info'].open()).style('width: 10%')
 
 """ 
 -------------------------------------------------------------------------------

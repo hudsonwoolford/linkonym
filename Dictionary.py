@@ -1,7 +1,12 @@
 from nltk.corpus import wordnet
+import nltk
 
-#if not downloaded
-# nltk.download('wordnet')
+#initialise dictionary and download wordnet if not exist
+try:
+    wordnet.synsets('bark')
+except:
+    nltk.download('wordnet')
+    wordnet.synsets('bark')
 
 def getRecords(word):
     resp = ""
@@ -104,5 +109,3 @@ def getRecordsAdvanced(word):
         result["antonyms"] = list(antonyms)
     
     return result
-
-wordnet.synsets("bark") #initialize

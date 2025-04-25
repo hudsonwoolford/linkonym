@@ -1,7 +1,6 @@
 from torch import Tensor
 from torch.nn import CosineSimilarity 
 from torch import load as torchLoad
-from Utility import RandomKey
 import random
 import datetime
 
@@ -24,8 +23,14 @@ _TargetWord = "" #current target word
 _StartWord = "" #current start word
 _WordChain = [] #current chain of words
 
-#ensure model is downloaded
-# stanza.download('en')
+def RandomKey(dic: dict, dataRange: range = None):
+    keyList =  list(dic.keys())
+
+    if(dataRange == None):
+        dataRange = range(0, len(keyList))
+    else:
+        dataRange = range(0, min(len(keyList), dataRange.stop), dataRange.step)
+    return str(keyList[random.randrange(dataRange.start, dataRange.stop, dataRange.step)])
 
 def TensorCosSimilarity(t1: Tensor, t2: Tensor) -> float:
     cos = CosineSimilarity(dim=0)
@@ -171,6 +176,26 @@ def LoadWordData(wordPath: str, bannedPath: str):
     _BannedData = torchLoad(bannedPath)
 
     # _WordData["vocab"] = StanzaUtility.LemmatarizedDict(_WordData["vocab"]) #get lemma only
+
+def CreateDailyGames(amount: int, seed: int) -> dict:
+    random.seed(seed)
+    currentTime = datetime.datetime.now()
+    dailyGames = {}
+
+    for i in range(0, amount):
+        currentDate = str((currentTime + datetime.timedelta(i)).date())
+
+        GenerateStartEndWords(minDistance=0.5)
+        dailyGames[currentDate] = f"{_StartWord}, {_TargetWord}"
+    
+    return dailyGames
+
+# LoadWordData('output/WikipediaWData.pt', 'output/WikipediaBData.pt')
+# dailyGames = CreateDailyGames(365, 0)
+# import FileManager
+# FileManager.SaveJsonDict(dailyGames, 'output/DailyGames.json')
+
+
 
 
 # LoadWordData('output/WikipediaWData.pt','output/WikipediaBData.pt')
