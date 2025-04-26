@@ -3,7 +3,6 @@ from torch.nn import CosineSimilarity
 from torch import load as torchLoad
 import random
 import datetime
-import FileManager
 
 DISTANCE_CUTOFF = 0.325 #max distance for word chain
 TERMINAL_RANGE = range(100, 10000)
