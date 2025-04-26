@@ -40,6 +40,8 @@ def HintWord(w1: str, w2: str, maxDistanceJump: float = 0.25) -> str:
 
     t1 = _WordData['emb'][_WordData['vocab'][w1]['id']]
     t2 = _WordData['emb'][_WordData['vocab'][w2]['id']]
+
+    
     
     twentyClosest = ClosestWords(w1, 20)
 

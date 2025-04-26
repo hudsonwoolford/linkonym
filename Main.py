@@ -1,8 +1,8 @@
 from nicegui import ui, app
 import GameLogic
-import pyperclip
 from CustomUI import ToggleButton
 import Dictionary as WordDictionary
+import asyncio
 
 #UI variables
 _ChainScrollArea: ui.scroll_area = None
@@ -89,6 +89,7 @@ UTILITY FUNCTIONS
 
 -------------------------------------------------------------------------------
 """
+
 def OverlayCard() -> ui.card:
     return ui.card().style(f'{BORDER_SETTINGS}; width: 20rem; height: 28rem').classes(f'hidden-scroll no-shadow items-center hidden-scrollbar')
 
@@ -97,7 +98,7 @@ def CopyClipboardGame():
     for word in GameLogic._WordChain:
         chain += f"||{word}||\n"
 
-    pyperclip.copy(f"""
+    ui.clipboard.write(f"""
 ----------
 Check out my {GAME_NAME} game! 🙂
 
@@ -114,16 +115,12 @@ You can play the same game here: {GAME_NAME}.me/{GameLogic._Seed}
     
     ui.notify("Copied game to clipboard")
 
-from asyncio import sleep
-from nicegui.events import GenericEventArguments
-import asyncio
-
 async def GiveUp():
     notif = ui.notification(timeout=None)
     notif.message = 'Solving...'
     notif.spinner = True
 
-    await sleep(0.1)  #let the nicegui render the notification
+    await asyncio.sleep(0.1)  #let the nicegui render the notification
 
     #run HintWord in a thread so it doesn't block
     loop = asyncio.get_running_loop()
@@ -145,7 +142,7 @@ async def GiveUp():
     notif.dismiss()
     
     GameLogic._GivenUp = True
-    WinDialog(_Dialogs['win'])
+    WinGame()
 
 
 async def Hint():
@@ -157,9 +154,9 @@ async def Hint():
 
     if(GameLogic.WordSim(lastWord, GameLogic._TargetWord) < GameLogic.DISTANCE_CUTOFF):
         GameLogic.GuessWord(GameLogic._TargetWord)
-        WinDialog(_Dialogs['win'])
+        WinGame()
     else:
-        await sleep(0.1)  #let the nicegui render the notification
+        await asyncio.sleep(0.1)  #let the nicegui render the notification
         
         #run HintWord in a thread so it doesn't block
         loop = asyncio.get_running_loop()
@@ -179,8 +176,8 @@ async def Hint():
 def ChangeSiteColor(color: str):
     global PRIMARY
     PRIMARY = color
+    app.storage.browser['color'] = color
     ui.colors(primary=PRIMARY, secondary=SECONDARY, accent=ACCENT, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING, dark=DARK, dark_page=DARK_PAGE)
-    app.storage.browser['pageColor'] = color
     ui.run_javascript(f'''
     document.documentElement.style.setProperty('--selection-color', '{PRIMARY}');
     ''')
@@ -207,7 +204,7 @@ def GuessInput(inputBox: ui.input):
             WordChain.refresh(True)
             ui.notify(message, type='positive', timeout=1500, position='bottom', badgeColor=POSITIVE, badgeTextColor=TEXT_PRIMARY)
             if(guess == GameLogic._TargetWord):
-                WinDialog(_Dialogs['win'])
+                WinGame()
                 
         else:
             ui.notify(message, type='warning', timeout=1500, position='bottom', badgeColor='warning', badgeTextColor=TEXT_BLACK)
@@ -217,37 +214,18 @@ def GuessInput(inputBox: ui.input):
     #reset and refocus box
     inputBox.value = ""
     ui.run_javascript(f"document.getElementById('{inputBox.id}').focus()")
-    
-#dialog card when you win the game
-def WinDialog(dialog: ui.dialog):
-    #disable input
+
+def WinGame():
+    #stop input
     _InputWordBox.props('disable')
-    #store parameters
 
-    #set all parameters
-    with dialog, OverlayCard():
-        with ui.row().classes('justify-center items-center gap-1.5'):
-            ui.icon('sym_r_emoji_events' if not GameLogic._GivenUp else 'sym_r_flag', size="150%", color=TEXT_PRIMARY)
-            ui.label("You won!" if not GameLogic._GivenUp else "Gave up!").style(f"color: {TEXT_PRIMARY}; font-weight: bold; font-size: 150%")
+    #store data
+    StatsDialogElements.refresh()
 
-        with ui.row().classes('justify-center items-center gap-1.5'):
-            ui.chip(f"{len(GameLogic._WordChain)-1} links", icon='sym_r_link')
+    #show dialog
+    WinDialogElements.refresh(_Dialogs['win'])
+    _Dialogs['win'].open()
 
-            ui.chip(f"{GameLogic._NumHints} hint" + ('s' if GameLogic._NumHints > 1 else ''), icon='sym_r_lightbulb')
-
-        with ui.scroll_area().style(f'border-color: {BORDER_COLOR}; border-radius: {BORDER_RADIUS}; border-width: 1px; width: 90%').classes('h-full') as scrollArea:
-            with ui.timeline(side='right', layout='dense').classes('gap-0 p-0 h-full'):
-                for i, w in enumerate(GameLogic._WordChain):
-                    GameLogic.WordSim(w, GameLogic._TargetWord, 3)
-                    ui.timeline_entry("",subtitle=w).style('height: 4rem').classes('p-0')
-                scrollArea.scroll_to(percent=100, duration=1)
-
-        with ui.row().style('width: 100%; height: 10%').classes('justify-center'):
-            ui.button(icon='sym_r_navigate_next', on_click=lambda e: (dialog.close(), RestartBtn()))
-            ui.button(icon='sym_r_ios_share', on_click=lambda e: CopyClipboardGame())
-
-        
-    dialog.open() #show card
 
 def SelectEmbedOption(option: str):
     global _EmbedOptionKey
@@ -267,6 +245,49 @@ REFRESHABLE ELEMENTS
 
 -------------------------------------------------------------------------------
 """
+#dialog card when you win the game
+@ui.refreshable
+def StatsDialogElements():
+    scores = [1, 2, 3, 4, 5, 6, 7]
+    ui.echart({
+    'xAxis' : {'type' : 'value'},
+    'yAxis' : {'type' : 'value'},
+    'legend': {'textStyle' : {'color' : 'gray'}},
+    'series': [
+        {'type' : 'bar', 
+            'name' : 'Scores',
+            'data' : scores,
+            'color': f'{PRIMARY}' }
+    ],
+    })
+
+@ui.refreshable
+def WinDialogElements(dialog: ui.dialog):
+    #disable input
+    #store parameters
+    #set all parameters
+    with ui.row().classes('justify-center items-center gap-1.5'):
+        ui.icon('sym_r_emoji_events' if not GameLogic._GivenUp else 'sym_r_flag', size="150%", color=TEXT_PRIMARY)
+        ui.label("You won!" if not GameLogic._GivenUp else "Gave up!").style(f"color: {TEXT_PRIMARY}; font-weight: bold; font-size: 150%")
+
+    with ui.row().classes('justify-center items-center gap-1.5'):
+        ui.chip(f"{len(GameLogic._WordChain)-1} links", icon='sym_r_link')
+
+        ui.chip(f"{GameLogic._NumHints} hint" + ('s' if GameLogic._NumHints != 1 else ''), icon='sym_r_lightbulb')
+
+    with ui.scroll_area().style(f'border-color: {BORDER_COLOR}; border-radius: {BORDER_RADIUS}; border-width: 1px; width: 90%').classes('h-full') as scrollArea:
+        with ui.timeline(side='right', layout='dense').classes('gap-0 p-0 h-full'):
+            for i, w in enumerate(GameLogic._WordChain):
+                GameLogic.WordSim(w, GameLogic._TargetWord, 3)
+                ui.timeline_entry("",subtitle=w).style('height: 4rem').classes('p-0')
+            scrollArea.scroll_to(percent=100, duration=1)
+
+    with ui.row().style('width: 100%; height: 10%').classes('justify-center'):
+        ui.button(icon='sym_r_navigate_next', on_click=lambda e: (dialog.close(), RestartBtn()))
+        ui.button(icon='sym_r_ios_share', on_click=lambda e: CopyClipboardGame())
+
+    
+
 @ui.refreshable
 def WordChain(fadeIn: bool = True):
     #create a card for each word
@@ -346,7 +367,7 @@ def HeaderRow():
         ui.label(f'{GAME_NAME}').style(f'color: {TEXT_PRIMARY}; font-size: 250%; font-weight: bold').classes('absolute-center')
         with ui.row().classes('justify-end').style('width: 30%'):
             # CreateEmbedDropdown()
-            with ui.dropdown_button().style('width: 10%').props('dropdown-icon=sym_r_more_vert no-icon-animation') as dropdownButton:
+            with ui.dropdown_button().style('width: 10%').props('dropdown-icon=sym_r_more_vert no-icon-animation transition-show=jump-down transition-hide=jump-up') as dropdownButton:
                 with ui.item(on_click= Hint) as specialHintItem:
                     specialHintItem.on_click(lambda e: dropdownButton.close())
                     with ui.row().classes('justify-center items-center gap-1.5'):
@@ -386,10 +407,6 @@ def GlobalSetup():
     ui.add_head_html(
     r'''
     <style>
-    body { 
-    overflow: hidden; 
-    }
-
     .hidden-scrollbar {
     overflow-y: scroll;
     scrollbar-width: none; /* Firefox */
@@ -408,6 +425,10 @@ def GlobalSetup():
         display: flex !important;
         align-items: stretch !important;
     }
+    .no-backdrop-dialog .q-dialog__backdrop{
+        background: rgba(0,0,0,0) !important; /* nothing - this better work */   
+    }
+    
     </style>
     ''')#other html
 
@@ -425,9 +446,22 @@ def GlobalSetup():
 
     #global setup - dialogs
     global _Dialogs
+
+    #stats dialog setup
+    
+    _Dialogs['stats'] = ui.dialog().props('transition-hide=fade transition-show=fade').style('backdrop-filter: none').classes('no-backdrop-dialog')
+    statRadio = None
+    with _Dialogs['stats'], OverlayCard().classes('justify-between'):
+        StatsDialogElements()
+        statRadio = ui.radio(['0', '1'], value='0', on_change= lambda e: _Dialogs['stats'].close()).props('inline size=xs')
+
+
     #winning dialogue setup
     _Dialogs['win'] = ui.dialog()
-    _Dialogs['win'].close()
+    with _Dialogs['win'] as dialog, OverlayCard():
+        WinDialogElements(dialog)
+        ui.radio(['0', '1'], value='0', on_change= lambda e: _Dialogs['stats'].open()).props('inline size=xs').bind_value(statRadio, 'value')
+
 
     #info dialogue setup
     _Dialogs['info'] = ui.dialog()
@@ -464,6 +498,7 @@ def GlobalSetup():
         # picker.q_color.props('default-view=palette no-header no-footer')
         
         ui.button(icon='sym_r_delete', text='Clear Data').classes('justify-center w-full')
+
             
 @ui.page('/dev')
 def DevPage():
@@ -474,7 +509,6 @@ def DevPage():
 def GamePage(seed: str):
     global PRIMARY
     global _ChainScrollArea, _InputWordBox
-    PRIMARY = app.storage.browser.get('pageColor', PRIMARY)
     GlobalSetup()
 
     #load data and start game
