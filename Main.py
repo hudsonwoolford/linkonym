@@ -3,17 +3,14 @@ import GameLogic
 from CustomUI import ToggleButton
 import Dictionary as WordDictionary
 import asyncio
+import random
+import FileManager
+import datetime
 
 #UI variables
-_ChainScrollArea: ui.scroll_area = None
-_EmbedOptionKey: str = "Wikipedia2014" #default embed path
-_InputWordBox: ui.input = None
-_Seed: str = "Seed"
-_UseSeed: bool = False
-_Dialogs: dict = {}
 
 #UI colours and parameters
-GAME_NAME = "Lexichain"
+GAME_NAME = "Linkonym"
 BORDER_COLOR = '#AAAAAA'
 BORDER_WIDTH = '0px'
 BORDER_RADIUS = '10px'
@@ -22,8 +19,7 @@ TEXT_PRIMARY = 'white'
 TEXT_BLACK = 'black'
 TEXT_SECONDARY = '#777777'
 TEXT_DARK_GREY = '#555555'
-PRIMARY = '#5c0000'
-# PRIMARY = '#5898d4'
+PRIMARY = '#5898d4'
 SECONDARY =  '#26a69a'
 ACCENT = '#9c27b0'
 DARK = '#1d1d1d'
@@ -56,28 +52,8 @@ custom_colors:	Custom color definitions for branding (needs ui.colors to be call
 EMBED_OPTIONS = {
     "Wikipedia2014" :
     {
-        "words"  : "output/WikipediaWData.pt",
-        "banned" : "output/WikipediaBData.pt"
-    },
-    "WikiNews2017" :
-    {
-        "words"  : "output/WikiNewsWData.pt",
-        "banned" : "output/WikiNewsBData.pt"
-    },
-    "Google" :
-    {
-        "words"  : "output/GoogleNewsWData.pt",
-        "banned" : "output/GoogleNewsBData.pt"
-    },
-    "LexVec" :
-    {
-        "words"  : "output/LexVecWData.pt",
-        "banned" : "output/LexVecBData.pt"
-    },
-    "NumberBatch" :
-    {
-        "words"  : "output/NumberBatchWData.pt",
-        "banned" : "output/NumberBatchBData.pt"
+        "words"  : "./output/WikipediaWData.pt",
+        "banned" : "./output/WikipediaBData.pt"
     }
 }
 
@@ -94,28 +70,36 @@ def OverlayCard() -> ui.card:
     return ui.card().style(f'{BORDER_SETTINGS}; width: 20rem; height: 28rem').classes(f'hidden-scroll no-shadow items-center hidden-scrollbar')
 
 def CopyClipboardGame():
+    wordChain = app.storage.tab.get('word-chain')
+    terminalWords = app.storage.tab.get('terminalWords')
+    numHints = app.storage.tab.get('num-hints')
+
     chain = ""
-    for word in GameLogic._WordChain:
+    for word in wordChain:
         chain += f"||{word}||\n"
 
     ui.clipboard.write(f"""
 ----------
 Check out my {GAME_NAME} game! 🙂
 
-Here's my word chain from '{GameLogic._StartWord}' to '{GameLogic._TargetWord}': 🔗
+Here's my word chain from '{terminalWords[0]}' to '{terminalWords[1]}': 🔗
 
 {chain}
 
-Score: {len(GameLogic._WordChain)-1} 🔥
-Hints: {GameLogic._NumHints} 💡
+Score: {len(wordChain)-1} 🔥
+Hints: {numHints} 💡
 
-You can play the same game here: {GAME_NAME}.me/{GameLogic._Seed}
+You can play the same game here: {GAME_NAME}.com/IMPLEMENT-SEED-RETRIEVAL
 ----------
 """)
     
     ui.notify("Copied game to clipboard")
 
 async def GiveUp():
+    wordChain = app.storage.tab.get('word-chain')
+    numHints = app.storage.tab.get('num-hints')
+    terminalWords = app.storage.tab.get('terminal-words')
+
     notif = ui.notification(timeout=None)
     notif.message = 'Solving...'
     notif.spinner = True
@@ -125,67 +109,66 @@ async def GiveUp():
     #run HintWord in a thread so it doesn't block
     loop = asyncio.get_running_loop()
     for i in range(0, 20):
-        lastWord = GameLogic._WordChain[-1]
-        hint = await loop.run_in_executor(None, GameLogic.HintWord, lastWord, GameLogic._TargetWord, 0.15)
-        GameLogic.GuessWord(hint)
+        lastWord = wordChain[-1]
+        hint = await loop.run_in_executor(None, GameLogic.HintWord, lastWord, terminalWords[1], wordChain, 0.15)
+        GuessInput(hint)
         WordChain.refresh(True)
-        if(GameLogic.WordSim(hint, GameLogic._TargetWord) < GameLogic.DISTANCE_CUTOFF):
-            GameLogic.GuessWord(GameLogic._TargetWord)
-            GameLogic._NumHints += 1
+        if(GameLogic.WordSim(hint, terminalWords[1]) < GameLogic.DISTANCE_CUTOFF):
+            GuessInput(terminalWords[1])
+            numHints += 1
             WordChain.refresh(True)
             break
 
-    notif.spinner = False
-    notif.message = 'Done!'
-    notif.type = 'positive'
-    await asyncio.sleep(0.5)
     notif.dismiss()
     
-    GameLogic._GivenUp = True
+    app.storage.tab['given-up'] = True
+    app.storage.tab['num-hints'] = numHints
     WinGame()
 
 
 async def Hint():
-    lastWord = GameLogic._WordChain[-1]
+    wordChain = app.storage.tab.get('word-chain')
+    numHints = app.storage.tab.get('num-hints')
+    terminalWords = app.storage.tab.get('terminal-words')
+
+    lastWord = wordChain[-1]
 
     notif = ui.notification(timeout=None)
     notif.message = 'Calculating hint...'
     notif.spinner = True
 
-    if(GameLogic.WordSim(lastWord, GameLogic._TargetWord) < GameLogic.DISTANCE_CUTOFF):
-        GameLogic.GuessWord(GameLogic._TargetWord)
+    if(GameLogic.WordSim(lastWord, terminalWords[1]) < GameLogic.DISTANCE_CUTOFF):
+        GuessInput(terminalWords[1])
         WinGame()
     else:
         await asyncio.sleep(0.1)  #let the nicegui render the notification
         
         #run HintWord in a thread so it doesn't block
         loop = asyncio.get_running_loop()
-        hint = await loop.run_in_executor(None, GameLogic.HintWord, lastWord, GameLogic._TargetWord, 0.15)
+        hint = await loop.run_in_executor(None, GameLogic.HintWord, lastWord, terminalWords[1], wordChain, 0.15)
 
-        GameLogic.GuessWord(hint)
+        GuessInput(hint)
 
     WordChain.refresh(True)
 
-    notif.spinner = False
-    notif.message = 'Done!'
-    notif.type = 'positive'
-    await asyncio.sleep(0.5)
     notif.dismiss()
 
+    numHints +=1
+    app.storage.tab['num-hints'] = numHints
 
 def ChangeSiteColor(color: str):
-    global PRIMARY
-    PRIMARY = color
-    app.storage.browser['color'] = color
-    ui.colors(primary=PRIMARY, secondary=SECONDARY, accent=ACCENT, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING, dark=DARK, dark_page=DARK_PAGE)
+    app.storage.user['color'] = color
+    ui.colors(primary=color, secondary=SECONDARY, accent=ACCENT, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING, dark=DARK, dark_page=DARK_PAGE)
     ui.run_javascript(f'''
-    document.documentElement.style.setProperty('--selection-color', '{PRIMARY}');
+    document.documentElement.style.setProperty('--selection-color', '{color}');
     ''')
     HeaderRow.refresh()
-    ui.notify(f"Changed site color to {PRIMARY}", timeout=500)
+    WordChain.refresh()
+    TerminalCards.refresh()
+    ui.notify(f"Changed site color to {color}", timeout=500)
 
 def RestartBtn():
-    ui.navigate.to('/'+_Seed if _UseSeed else str(GameLogic.random.randint(0, 50000)))
+    ui.navigate.to('/'+str(GameLogic.random.randint(0, 50000000)))
     # GameLogic.RestartGame(_Seed if _UseSeed else None)
     # DictionaryText.refresh()
     # StartTargetCards.refresh()
@@ -193,17 +176,20 @@ def RestartBtn():
     # _Dialogs['win'].clear()
 
 #when user inputs guess from textbox
-def GuessInput(inputBox: ui.input):
-    guess = inputBox.value
-    
-    valid, message, guess = GameLogic.ValidateGuess(guess) #if guess is valid/(if it is in possible values and not banned)
+def GuessInput(guess: str):
+    wordChain = app.storage.tab.get('word-chain')
+    terminalWords = app.storage.tab.get('terminal-words')
+
+    valid, message, guess = GameLogic.ValidateGuess(guess, wordChain) #if guess is valid/(if it is in possible values and not banned)
     if(valid):
-        valid, message = GameLogic.GuessWord(guess) #get result of guessing the word, valid if it is within distance
+        valid, message = GameLogic.ValidateWordDist(guess, wordChain) #get result of guessing the word, valid if it is within distance
 
         if(valid):
+            wordChain.append(guess)
+            app.storage.tab['word-chain'] = wordChain
             WordChain.refresh(True)
             ui.notify(message, type='positive', timeout=1500, position='bottom', badgeColor=POSITIVE, badgeTextColor=TEXT_PRIMARY)
-            if(guess == GameLogic._TargetWord):
+            if(guess == terminalWords[1]):
                 WinGame()
                 
         else:
@@ -212,30 +198,28 @@ def GuessInput(inputBox: ui.input):
         ui.notify(message, type='negative', timeout=1500, position='bottom', badgeColor=NEGATIVE, badgeTextColor=TEXT_PRIMARY)
 
     #reset and refocus box
-    inputBox.value = ""
-    ui.run_javascript(f"document.getElementById('{inputBox.id}').focus()")
+
+def ClickToggleButton(word: str, tglBtn: ToggleButton):
+    tglBtn.enable(not tglBtn._state)
+    DictionaryText.refresh(word if tglBtn._state else "")
 
 def WinGame():
     #stop input
-    _InputWordBox.props('disable')
+    # _InputWordBox.props('disable')
 
     #store data
     StatsDialogElements.refresh()
 
     #show dialog
-    WinDialogElements.refresh(_Dialogs['win'])
-    _Dialogs['win'].open()
-
-
-def SelectEmbedOption(option: str):
-    global _EmbedOptionKey
-    _EmbedOptionKey = option
-    CreateEmbedDropdown.refresh()
-    GameLogic.LoadWordData(EMBED_OPTIONS[_EmbedOptionKey]["words"], EMBED_OPTIONS[_EmbedOptionKey]["banned"])
-    WordChain.refresh(False)
+    dialogs = app.storage.client.get('dialogs')
+    WinDialogElements.refresh(dialogs['win'])
+    dialogs['win'].open()
 
 def UndoBtn():
-    GameLogic._WordChain = GameLogic._WordChain[:-1] if len(GameLogic._WordChain) > 1 else GameLogic._WordChain
+    wordChain = app.storage.tab.get('word-chain')
+
+    wordChain = wordChain[:-1] if len(wordChain) > 1 else wordChain
+    app.storage.tab['word-chain'] = wordChain
     WordChain.refresh(False)
 
 """ 
@@ -257,28 +241,32 @@ def StatsDialogElements():
         {'type' : 'bar', 
             'name' : 'Scores',
             'data' : scores,
-            'color': f'{PRIMARY}' }
+            'color': f'#FFFFFF' }
     ],
     })
 
 @ui.refreshable
 def WinDialogElements(dialog: ui.dialog):
-    #disable input
+    wordChain = app.storage.tab.get('word-chain')
+    givenUp = app.storage.tab.get('given-up')
+    numHints = app.storage.tab.get('num-hints')
+    terminalWords = app.storage.tab.get('terminal-words')
+
     #store parameters
     #set all parameters
     with ui.row().classes('justify-center items-center gap-1.5'):
-        ui.icon('sym_r_emoji_events' if not GameLogic._GivenUp else 'sym_r_flag', size="150%", color=TEXT_PRIMARY)
-        ui.label("You won!" if not GameLogic._GivenUp else "Gave up!").style(f"color: {TEXT_PRIMARY}; font-weight: bold; font-size: 150%")
+        ui.icon('sym_r_emoji_events' if not givenUp else 'sym_r_flag', size="150%", color=TEXT_PRIMARY)
+        ui.label("You won!" if not givenUp else "Gave up!").style(f"color: {TEXT_PRIMARY}; font-weight: bold; font-size: 150%")
 
     with ui.row().classes('justify-center items-center gap-1.5'):
-        ui.chip(f"{len(GameLogic._WordChain)-1} links", icon='sym_r_link')
+        ui.chip(f"{len(wordChain)-1} links", icon='sym_r_link')
 
-        ui.chip(f"{GameLogic._NumHints} hint" + ('s' if GameLogic._NumHints != 1 else ''), icon='sym_r_lightbulb')
+        ui.chip(f"{numHints} hint" + ('s' if numHints != 1 else ''), icon='sym_r_lightbulb')
 
     with ui.scroll_area().style(f'border-color: {BORDER_COLOR}; border-radius: {BORDER_RADIUS}; border-width: 1px; width: 90%').classes('h-full') as scrollArea:
         with ui.timeline(side='right', layout='dense').classes('gap-0 p-0 h-full'):
-            for i, w in enumerate(GameLogic._WordChain):
-                GameLogic.WordSim(w, GameLogic._TargetWord, 3)
+            for i, w in enumerate(wordChain):
+                GameLogic.WordSim(w, terminalWords[1], 3)
                 ui.timeline_entry("",subtitle=w).style('height: 4rem').classes('p-0')
             scrollArea.scroll_to(percent=100, duration=1)
 
@@ -290,15 +278,21 @@ def WinDialogElements(dialog: ui.dialog):
 
 @ui.refreshable
 def WordChain(fadeIn: bool = True):
+    terminalWords = app.storage.tab.get('terminal-words')
+    wordChain = app.storage.tab.get('word-chain')
+    color = app.storage.user.get('color')
+
     #create a card for each word
     with ui.column().classes("w-full gap-2"):
-        for i, word in enumerate(GameLogic._WordChain):
-            chainMessage = f"({GameLogic.WordSim(word, GameLogic._TargetWord, 3)}) to '{GameLogic._TargetWord}'"
+        for i, word in enumerate(wordChain):
+            chainMessage = f"({GameLogic.WordSim(word, terminalWords[1], 3)}) to '{terminalWords[1]}'"
             # if(not i == len(GameLogic._WordChain)-1):
             #     chainMessage = f"({GameLogic.WordSim(word, GameLogic._WordChain[i+1], 3)})"
-            appendStyle = "" if i != len(GameLogic._WordChain) - 1 or not fadeIn  else "; animation: fade 0.3s"
+            appendStyle = "" if i != len(wordChain) - 1 or not fadeIn  else "; animation: fade 0.3s"
             
-            with ToggleButton(linkedId=word, col1=DARK, col2=PRIMARY, on_click= lambda e, wordPass=word:DictionaryText.refresh(wordPass if e._state else "")).style(f"width: 100%; {BORDER_SETTINGS}" + appendStyle).classes(f'custom-button-content'):
+            tglBtn = ToggleButton(linkedId=word, col1=DARK, col2=color).style(f"width: 100%; {BORDER_SETTINGS}" + appendStyle).classes(f'custom-button-content')
+            tglBtn.on_click(lambda e, wordPass = word, tb=tglBtn: ClickToggleButton(wordPass, tb))
+            with tglBtn:
                 with ui.row().style('width: 100%').classes('gap-4 h-full items-center justify-start text-left'):
                     ui.label(f'{i+1}').style(f'color: {TEXT_SECONDARY}')
                     ui.label(word).style(f'font-weight: normal; color: {TEXT_PRIMARY}')
@@ -306,22 +300,18 @@ def WordChain(fadeIn: bool = True):
 
     
     ui.element().style("height: 8rem").classes('w-full')
-    _ChainScrollArea.scroll_to(percent=100, axis='vertical', duration=0.5)
+    # _ChainScrollArea.scroll_to(percent=100, axis='vertical', duration=0.5)
     
 @ui.refreshable 
-def StartTargetCards():
+def TerminalCards():
+    terminalWords = app.storage.tab.get('terminal-words')
+    color = app.storage.user.get('color')
+
     #create cards for start and target
     with ui.row().classes('gap-0 items-center justify-between w-full'):
-            ToggleButton(linkedId=GameLogic._StartWord, label=GameLogic._StartWord, col1=DARK, col2=PRIMARY, on_click= lambda e:DictionaryText.refresh(GameLogic._StartWord if e._state else "")).style(BORDER_SETTINGS+"; width: 40%")
-            ui.icon("sym_r_keyboard_double_arrow_right", size="2rem", color=BORDER_COLOR)
-            ToggleButton(linkedId=GameLogic._TargetWord, label=GameLogic._TargetWord, col1=DARK, col2=PRIMARY, on_click= lambda e: DictionaryText.refresh(GameLogic._TargetWord if e._state else "")).style(BORDER_SETTINGS+"; width: 40%")
-
-@ui.refreshable
-def CreateEmbedDropdown():
-    with ui.dropdown_button(_EmbedOptionKey, icon="sym_r_storage", auto_close=True):
-        for opt in EMBED_OPTIONS.keys():
-            hexColor = PRIMARY if opt == _EmbedOptionKey else DARK
-            ui.item(str(opt), on_click=lambda e, option = str(opt): SelectEmbedOption(option)).style(f"background-color: {hexColor}")
+        start = ToggleButton(linkedId=terminalWords[0], label=terminalWords[0], col1=DARK, col2=color, on_click= lambda e:ClickToggleButton(terminalWords[0], start)).style(BORDER_SETTINGS+"; width: 40%")
+        ui.icon("sym_r_keyboard_double_arrow_right", size="2rem", color=BORDER_COLOR)
+        end = ToggleButton(linkedId=terminalWords[1], label=terminalWords[1], col1=DARK, col2=color, on_click= lambda e: ClickToggleButton(terminalWords[1], end)).style(BORDER_SETTINGS+"; width: 40%")
 
 @ui.refreshable
 def DictionaryText(word: str =""):
@@ -358,7 +348,7 @@ def DictionaryText(word: str =""):
         ui.separator().style(f'background-color: {BORDER_COLOR}; animation: fade 0.5s')
 
 @ui.refreshable
-def HeaderRow():
+def HeaderRow(dialogs: dict):
     with ui.row().style(f'height: {HEADER_HEIGHT}').classes('justify-between items-center w-full'):
         with ui.row().classes('justify-start').style('width: 30%'):
             ui.button(icon='sym_r_undo', on_click=lambda e: UndoBtn()).style('width: 10%')
@@ -378,11 +368,11 @@ def HeaderRow():
                     with ui.row().classes('justify-center items-center gap-1.5'):
                         ui.icon('sym_r_flag', color=TEXT_PRIMARY, size='125%')
                         ui.label("Give up").style(f"color: {TEXT_PRIMARY}")
-                with ui.item(on_click=lambda e: (_Dialogs['settings'].open(), dropdownButton.close())):
+                with ui.item(on_click=lambda e: (dialogs['settings'].open(), dropdownButton.close())):
                     with ui.row().classes('justify-center items-center gap-1.5'):
                         ui.icon('sym_r_build', color=TEXT_PRIMARY, size='125%')
                         ui.label("Settings").style(f"color: {TEXT_PRIMARY}")
-            ui.button(icon='sym_r_info', on_click=lambda e: _Dialogs['info'].open()).style('width: 10%')
+            ui.button(icon='sym_r_info', on_click=lambda e: dialogs['info'].open()).style('width: 10%')
 
 """ 
 -------------------------------------------------------------------------------
@@ -391,9 +381,11 @@ PAGES
 
 -------------------------------------------------------------------------------
 """
-def GlobalSetup():
+def CustomHTMTL():
+    color = app.storage.user.get('color')
+
     #global setup - colours
-    ui.colors(primary=PRIMARY, secondary=SECONDARY, accent=ACCENT, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING, dark=DARK, dark_page=DARK_PAGE)
+    ui.colors(primary=color, secondary=SECONDARY, accent=ACCENT, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING, dark=DARK, dark_page=DARK_PAGE)
     ui.dark_mode().enable() 
 
     #global setup - html
@@ -436,7 +428,7 @@ def GlobalSetup():
     '''
     <style>
     :root {
-    --selection-color:''' + PRIMARY + ''';
+    --selection-color:''' + color + ''';
     }
     ::selection {
     background: var(--selection-color);
@@ -444,9 +436,9 @@ def GlobalSetup():
     </style>
     ''') #selection color
 
+def InitializeDialogs() -> dict:
     #global setup - dialogs
-    global _Dialogs
-
+    _Dialogs = {}
     #stats dialog setup
     
     _Dialogs['stats'] = ui.dialog().props('transition-hide=fade transition-show=fade').style('backdrop-filter: none').classes('no-backdrop-dialog')
@@ -455,13 +447,11 @@ def GlobalSetup():
         StatsDialogElements()
         statRadio = ui.radio(['0', '1'], value='0', on_change= lambda e: _Dialogs['stats'].close()).props('inline size=xs')
 
-
     #winning dialogue setup
     _Dialogs['win'] = ui.dialog()
     with _Dialogs['win'] as dialog, OverlayCard():
         WinDialogElements(dialog)
         ui.radio(['0', '1'], value='0', on_change= lambda e: _Dialogs['stats'].open()).props('inline size=xs').bind_value(statRadio, 'value')
-
 
     #info dialogue setup
     _Dialogs['info'] = ui.dialog()
@@ -499,43 +489,69 @@ def GlobalSetup():
         
         ui.button(icon='sym_r_delete', text='Clear Data').classes('justify-center w-full')
 
+    return _Dialogs
             
 @ui.page('/dev')
 def DevPage():
     ui.dark_mode().enable() 
     ui.label('nice try')
 
-@ui.page('/{seed}')
-def GamePage(seed: str):
-    global PRIMARY
-    global _ChainScrollArea, _InputWordBox
-    GlobalSetup()
+@ui.page('/{_Seed}')
+async def GamePage(_Seed: str):
+    if(app.storage.user.get('color') == None):
+        app.storage.user['color'] = PRIMARY
+    
+    random.seed(_Seed)
 
-    #load data and start game
-    GameLogic.LoadWordData(EMBED_OPTIONS[_EmbedOptionKey]["words"], EMBED_OPTIONS[_EmbedOptionKey]["banned"])
-    GameLogic.RestartGame(seed=seed)
+    await ui.context.client.connected()
+    #inject custom html
+    CustomHTMTL()
+
+    #define temporary game variables (marked with an '_')
+    if(_Seed!='daily'):
+        _StartWord, _TargetWord = GameLogic.GenerateStartEndWords(minDistance=0.5)
+    else:
+        terminals = FileManager.LoadJsonDict('./output/DailyGames.json')[str(datetime.datetime.now().date())].split(', ')
+        _StartWord, _TargetWord = (terminals[0], terminals[1])
+    app.storage.tab['terminal-words'] = [_StartWord, _TargetWord] #store start and end words for optimisation
+    app.storage.tab['word-chain'] = [_StartWord] #store a chain of words in the tab
+    app.storage.tab['num-hints'] = 0 #store a number tracking hints in the tab
+    app.storage.tab['given-up'] = False #store a boolean for given up in the tab
+
+    #DEBUG
+    # print(f"""
+    # {app.storage.tab.get('terminal-words')},
+    # {app.storage.tab.get('word-chain')},
+    # {app.storage.tab.get('num-hints')},
+    # {app.storage.tab.get('given-up')},
+    # """)
+
+    _Dialogs = InitializeDialogs() #could be changed to a global dialog dictionary across all clients
+    app.storage.client['dialogs'] = _Dialogs
 
     #header
     with ui.header().style(f'background-color: {DARK}').style(f'font-size: 24; height: {HEADER_HEIGHT}').classes('py-0 w-screen font-weight-bold'):
-        HeaderRow()
-    
+        HeaderRow(_Dialogs)
 
     with ui.column().style(f'width: {GAME_WIDTH_VALUE}rem; justify-content: center; padding-top: 1rem').classes('h-full absolute-center'):
         with ui.element().style('display: flex').classes('w-full justify-center items-center'):
             ui.chip(f"Chain similar words to get to the target",icon="sym_r_link").props("outlined")
 
         #show start and target
-        StartTargetCards()
+        TerminalCards()
 
-        _InputWordBox = ui.input(placeholder="chain a word..."
+        inputWordBox = ui.input(placeholder="chain a word..."
                             ).props(f'autocomplete=off; autocapitalize=off; input-style="color: {BORDER_COLOR}"; autofocus'
                             ).classes(f' gap-0 items-center w-full')
-        _InputWordBox.on('keydown', lambda e: GuessInput(_InputWordBox) if e.args['key'] == "Enter" else None)
+        inputWordBox.on('keydown', lambda e: GuessInput(inputWordBox.value) if e.args['key'] == "Enter" else None)
+        def ResetRefocusBox():
+            inputWordBox.value = ""
+            ui.run_javascript(f"document.getElementById('{inputWordBox.id}').focus()")
+        inputWordBox.on('keydown', lambda e: ResetRefocusBox() if e.args['key'] == "Enter" else None)
 
         #word chain scroll area
         with ui.element().classes("h-screen w-full"):
             with ui.scroll_area().style(f"height: 60%; border-color: {BORDER_COLOR}; border-width: 1px; border-radius: {BORDER_RADIUS}").classes(f'rounded w-full') as scrollArea:
-                _ChainScrollArea = scrollArea
                 WordChain()
             ui.element('div').classes('my-4')
             DictionaryText()
@@ -543,7 +559,9 @@ def GamePage(seed: str):
 @ui.page('/')
 def HomePage():
     #redirect to daily / random game
-    ui.navigate.to('/' + str(GameLogic.random.randint(0, 50000)))
+    ui.navigate.to('/daily')
+
+
 
 
 
@@ -555,5 +573,5 @@ START OF AUTO-INDEX OR LOGIC
 -------------------------------------------------------------------------------
 """
 
-ui.run(reload=False, title=f"{GAME_NAME}", show=False, storage_secret='SWINGULARITY') #dont use reload (watch files) because leads to errors
+ui.run(reload=False, title=f"{GAME_NAME}", show=False, storage_secret='SWINGULARITY', port=8001) #dont use reload (watch files) because leads to errors
 

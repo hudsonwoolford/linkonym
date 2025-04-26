@@ -18,14 +18,6 @@ _nlp = None #natural language processor
 _WordData = None #global word data
 _BannedData = None #global banned word data
 
-#temp game variables
-_Seed = 0
-_TargetWord = "" #current target word
-_StartWord = "" #current start word
-_WordChain = [] #current chain of words
-_NumHints = 0 #current number of hints
-_GivenUp = False #given up in current game
-
 def RandomKey(dic: dict, dataRange: range = None):
     keyList =  list(dic.keys())
 
@@ -35,13 +27,9 @@ def RandomKey(dic: dict, dataRange: range = None):
         dataRange = range(0, min(len(keyList), dataRange.stop), dataRange.step)
     return str(keyList[random.randrange(dataRange.start, dataRange.stop, dataRange.step)])
 
-def HintWord(w1: str, w2: str, maxDistanceJump: float = 0.25) -> str:
-    global _NumHints
-
+def HintWord(w1: str, w2: str, wordChain: list, maxDistanceJump: float = 0.25) -> str:
     t1 = _WordData['emb'][_WordData['vocab'][w1]['id']]
     t2 = _WordData['emb'][_WordData['vocab'][w2]['id']]
-
-    
     
     twentyClosest = ClosestWords(w1, 20)
 
@@ -52,7 +40,7 @@ def HintWord(w1: str, w2: str, maxDistanceJump: float = 0.25) -> str:
         #barriers from being valid
         if(worddist[0] == w2): continue #cant be target
         if(worddist[1] > DISTANCE_CUTOFF): continue #cant be a guess out of range
-        if(worddist[0] in _WordChain): continue #cant be already guessed
+        if(worddist[0] in wordChain): continue #cant be already guessed
 
         t = _WordData['emb'][_WordData['vocab'][worddist[0]]['id']]
         dist = TensorCosSimilarity(t, t2)
@@ -63,7 +51,6 @@ def HintWord(w1: str, w2: str, maxDistanceJump: float = 0.25) -> str:
         if(bestGuess[1] > dist):
             bestGuess = (worddist[0], dist)
 
-    _NumHints += 1 #increment global hints
     return bestGuess[0]
 
 def TensorCosSimilarity(t1: Tensor, t2: Tensor) -> float:
@@ -88,9 +75,9 @@ def ClosestWords(w: str, amount: int = 10) -> list:
 def WordSim(w1: str, w2: str, roundDigits: int = 5):
     return round(TensorCosSimilarity(WordTensor(w1), WordTensor(w2)), roundDigits)
 
-def GuessWord(validatedGuess: str) -> tuple[bool, str]:
+def ValidateWordDist(validatedGuess: str, wordChain: list) -> tuple[bool, str]:
     """
-    Takes a **validated** guess as an input. Returns whether it was added and a message about the distance.
+    Takes a **validated** guess as an input. Returns whether it is valid in terms of distance and a message about the distance.
     """
     global _WordData
 
@@ -98,16 +85,15 @@ def GuessWord(validatedGuess: str) -> tuple[bool, str]:
         print("Warning: Guess not found, did you make sure to validated?")
         return False, "Tf going on, validation?"
     
-    prevWord = _WordChain[-1]
+    prevWord = wordChain[-1]
     dist = WordSim(prevWord, validatedGuess)
     if(dist <= DISTANCE_CUTOFF):
-        _WordChain.append(validatedGuess)
         return True, f"Chained '{prevWord}' -> '{validatedGuess}' ({round(dist, 3)})"
     else:
         return False, f"Failed to chain '{validatedGuess}' ({round(dist, 3)} is too far)"
     
 
-def ValidateGuess(guess: str) -> tuple[bool, str, str]:
+def ValidateGuess(guess: str, wordChain: list) -> tuple[bool, str, str]:
     """
     Checks a guess inputted by user and returns [valid(bool), feedbackMessage(str), modifiedGuess(str)]:
         banned ? false, error message
@@ -117,13 +103,12 @@ def ValidateGuess(guess: str) -> tuple[bool, str, str]:
     global _WordData, _BannedData
 
     possibleValues = list(_WordData["vocab"].keys())
-    chainValues = _WordChain #cannot go back on the word chain
 
     guess = guess.strip().lower() #ensure no weird spaces or casing
     if(guess in possibleValues):
         guess = RemoveFeatureSuffix(guess, "Number=Plur", "s") #make plur sing
         guess = RemoveFeatureSuffix(guess, "Tense=Past", ["ed","d"]) #make past present
-        if(guess in chainValues):
+        if(guess in wordChain):
             return False, f"'{guess}' is already in chain!", guess
     else:
         if(guess in _BannedData["vocab"].keys()):
@@ -149,14 +134,10 @@ def RemoveFeatureSuffix(word: str, feat: str, suffixes: list):
     
     return word
     
-def GenerateStartEndWords(minDistance: float = 0.325) -> tuple:
+def GenerateStartEndWords(minDistance: float = 0.325) -> tuple[str, str]:
     """
     Generates start and end words for game randomly, optional minDistance parameter
     """
-    global _WordChain, _WordData, _StartWord, _TargetWord
-
-    if(len(_WordChain)>0):
-        print("Warning: Word chain should be empty when calling GenerateStartEndWords")
 
     end = RandomKey(_WordData["vocab"], TERMINAL_RANGE)
     while _WordData["vocab"][end]["pos"] in WORD_CATEGORY["halfBanned"]:
@@ -177,42 +158,8 @@ def GenerateStartEndWords(minDistance: float = 0.325) -> tuple:
         if(K > 10000):
             print("Warning: Taking too long to determine start and end words, maybe lower minDistance or raise terminal range?")
             break
-    
 
-
-    _StartWord = start
-    _TargetWord = end
     return start, end
-
-def RestartGame(seed = None):
-    """
-    Resets local game variables and generates new start and target words
-    """
-    global _TargetWord, _WordChain, _Seed, _StartWord, _NumHints, _GivenUp
-
-    # _seed = random.randint(-5000000, 5000000)
-    
-    if(seed == None):
-        _Seed = datetime.datetime.now().microsecond + datetime.datetime.now().second + datetime.datetime.now().minute
-    else:
-        _Seed = seed
-
-    random.seed(str(_Seed))
-
-    _TargetWord = ""
-    _WordChain = []
-    _NumHints = 0
-    _GivenUp = False
-
-    if(str(_Seed).lower() !='daily'):
-        GenerateStartEndWords(minDistance=0.5)
-    else:
-        dailyGameDict = FileManager.LoadJsonDict('output/DailyGames.json')
-        terminalWords = dailyGameDict[str(datetime.datetime.now().date())].split(', ')
-        _StartWord = terminalWords[0]
-        _TargetWord = terminalWords[1]
-
-    _WordChain.append(_StartWord)
 
 
 def LoadWordData(wordPath: str, bannedPath: str):
@@ -231,12 +178,14 @@ def CreateDailyGames(amount: int, seed: int) -> dict:
     for i in range(0, amount):
         currentDate = str((currentTime + datetime.timedelta(i)).date())
 
-        GenerateStartEndWords(minDistance=0.5)
-        dailyGames[currentDate] = f"{_StartWord}, {_TargetWord}"
+        start, end = GenerateStartEndWords(minDistance=0.5)
+        dailyGames[currentDate] = f"{start}, {end}"
     
     return dailyGames
 
-# LoadWordData('output/WikipediaWData.pt', 'output/WikipediaBData.pt')
+#get word data
+LoadWordData('output/WikipediaWData.pt', 'output/WikipediaBData.pt')
+
 # dailyGames = CreateDailyGames(365, 0)
 # import FileManager
 # FileManager.SaveJsonDict(dailyGames, 'output/DailyGames.json')
