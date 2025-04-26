@@ -3,6 +3,8 @@ from torch.nn import CosineSimilarity
 from torch import load as torchLoad
 import random
 import datetime
+import os
+import FileManager
 
 DISTANCE_CUTOFF = 0.325 #max distance for word chain
 TERMINAL_RANGE = range(100, 10000)
@@ -16,6 +18,7 @@ WORD_CATEGORY = {
 _nlp = None #natural language processor
 _WordData = None #global word data
 _BannedData = None #global banned word data
+_DailyData = None #global daily data
 
 def RandomKey(dic: dict, dataRange: range = None):
     keyList =  list(dic.keys())
@@ -161,11 +164,12 @@ def GenerateStartEndWords(minDistance: float = 0.325) -> tuple[str, str]:
     return start, end
 
 
-def LoadWordData(wordPath: str, bannedPath: str):
-    global _WordData, _BannedData, _nlp 
+def LoadWordData(wordPath: str, bannedPath: str, dailyPath: str):
+    global _WordData, _BannedData, _DailyData
 
     _WordData = torchLoad(wordPath)
     _BannedData = torchLoad(bannedPath)
+    _DailyData = FileManager.LoadJsonDict(dailyPath)
 
     # _WordData["vocab"] = StanzaUtility.LemmatarizedDict(_WordData["vocab"]) #get lemma only
 
@@ -183,7 +187,8 @@ def CreateDailyGames(amount: int, seed: int) -> dict:
     return dailyGames
 
 #get word data
-LoadWordData('output/WikipediaWData.pt', 'output/WikipediaBData.pt')
+baseDir = os.path.dirname(os.path.abspath(__file__))
+LoadWordData(os.path.join(baseDir,'data/WikipediaWData.pt'), os.path.join(baseDir,'data/WikipediaBData.pt'), os.path.join(baseDir, 'data/DailyGames.json'))
 
 # dailyGames = CreateDailyGames(365, 0)
 # import FileManager
