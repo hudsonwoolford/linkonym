@@ -7,6 +7,7 @@ import asyncio
 import random
 import FileManager
 import datetime
+import os
 
 #UI variables
 
@@ -20,7 +21,7 @@ TEXT_PRIMARY = 'white'
 TEXT_BLACK = 'black'
 TEXT_SECONDARY = '#777777'
 TEXT_DARK_GREY = '#555555'
-PRIMARY = '#5c000000'
+PRIMARY = '#5c0000'
 SECONDARY =  '#26a69a'
 ACCENT = '#9c27b0'
 DARK = '#1d1d1d'
@@ -29,10 +30,12 @@ POSITIVE = '#21ba45'
 NEGATIVE = '#c10015'
 INFO = '#31ccec'
 WARNING = '#f2c037'
-GAME_WIDTH= '20%'
+GAME_WIDTH= '24rem'
 HEADER_HEIGHT = '4rem'
 NUM_DEFINITIONS = 2
 PORT = 8080
+MAX_TRACK_GAMES = 50
+WEBSITE_RANDOMIZE = random.Random()
 
 
 """
@@ -159,6 +162,18 @@ async def Hint():
     numHints +=1
     app.storage.tab['num-hints'] = numHints
 
+def ChangeMode(mode: str):
+    app.storage.tab['mode'] = mode
+    if(mode == 'practice'):
+        ui.navigate.to('/practice/'+str(WEBSITE_RANDOMIZE.randint(0, 50000000)))
+    elif(mode=='daily'):
+        ui.navigate.to('/daily')
+
+def ClearUserData():
+    app.storage.user['color'] = PRIMARY
+    app.storage.user['game-scores'] = []
+    app.storage.user['games-played'] = 0
+
 def ChangeSiteColor(color: str):
     app.storage.user['color'] = color
     ui.colors(primary=color, secondary=SECONDARY, accent=ACCENT, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING, dark=DARK, dark_page=DARK_PAGE)
@@ -170,8 +185,8 @@ def ChangeSiteColor(color: str):
     TerminalCards.refresh()
     ui.notify(f"Changed site color to {color}", timeout=500)
 
-def RestartBtn():
-    ui.navigate.to('/'+str(GameLogic.random.randint(0, 50000000)))
+def PracticeBtn():
+    ui.navigate.to('/practice/'+str(WEBSITE_RANDOMIZE.randint(0, 50000000)))
     # GameLogic.RestartGame(_Seed if _UseSeed else None)
     # DictionaryText.refresh()
     # StartTargetCards.refresh()
@@ -207,11 +222,23 @@ def ClickToggleButton(word: str, tglBtn: ToggleButton):
     DictionaryText.refresh(word if tglBtn._state else "")
 
 def WinGame():
+    seed = app.storage.tab.get('seed')
     wordChain = app.storage.tab.get('word-chain')
     score = len(wordChain)-1
+    gameScores = app.storage.user.get('game-scores')
+    gamesPlayed = app.storage.user.get('games-played')
 
     #store data
-    app.storage.user['scores'].append(score)
+    gameScores.append({
+        'score' : score,
+        'seed' : seed,
+        'date' : str(datetime.datetime.now().date().strftime('%d/%m/%y'))
+    })
+    if(len(gameScores) > MAX_TRACK_GAMES):
+        gameScores = gameScores[-MAX_TRACK_GAMES:]
+    app.storage.user['game-scores'] = gameScores
+    gamesPlayed += 1
+    app.storage.user['games-played'] = gamesPlayed
     StatsDialogElements.refresh()
 
     #show dialog
@@ -236,18 +263,96 @@ REFRESHABLE ELEMENTS
 #dialog card when you win the game
 @ui.refreshable
 def StatsDialogElements():
-    scores = app.storage.user.get('scores')
-    ui.echart({
-    'xAxis' : {'type' : 'value'},
-    'yAxis' : {'type' : 'value'},
-    'legend': {'textStyle' : {'color' : 'gray'}},
-    'series': [
-        {'type' : 'bar', 
-            'name' : 'Scores',
-            'data' : scores,
-            'color': app.storage.user.get('color') }
-    ],
-    })
+    gameScores: list = app.storage.user.get('game-scores')
+    gamesPlayed: int = app.storage.user.get('games-played')
+    with ui.row().classes('justify-center items-center gap-1.5'):
+            ui.icon('sym_r_bar_chart', size="150%", color=TEXT_PRIMARY)
+            ui.label("Stats").style(f"color: {TEXT_PRIMARY}; font-weight: bold; font-size: 150%")
+
+    if(len(gameScores) > 0):
+        ui.echart({
+        'height' : '60%',
+        'title': {
+            'text': 'Previous scores',  #title text
+            'subtext': f'Maxes at {MAX_TRACK_GAMES} games',  #subtitle
+            'left': 'center', 
+            'top': 'top', 
+            'textStyle': {
+                'color': TEXT_PRIMARY,
+                'fontSize': 16
+            },
+        },
+        'tooltip': {
+            'trigger': 'item', 
+            ':formatter': """
+                function(params) {
+                    return 'Score: ' + params.value + '<br>' +
+                        'Seed: ' + params.name + '<br>' +
+                        'Date: ' + params.data.date;
+                }
+            """
+        },
+        'xAxis' : {'show' : False, 'type' : 'category', 'data' : [score['seed'] for score in gameScores]},
+        'yAxis' : {'type' : 'value', 'splitLine' : {
+            'lineStyle': {
+                'type' : 'dashed',
+                'color': TEXT_SECONDARY
+            }
+        }, ''
+        'interval': 2},
+        'legend': {'show' :  False },
+        'series': [
+            {
+                'type' : 'bar',
+                'data': [{'name': score['seed'], 'value': score['score'], 'date': score['date']} for score in gameScores],
+                'name' : 'Score',
+                'color': app.storage.user.get('color')
+            }
+        ]
+        })
+
+        avgScore = 0
+        bestScore = -1
+        prevDate = ""
+        streak = 0
+        for gs in gameScores:
+            if(gs['seed'] == 'daily'):
+                gameDate = datetime.datetime.strptime(gs['date'], '%d/%m/%y')
+                if(prevDate == ""):
+                    prevDate = gameDate
+                    streak = 1
+                elif(prevDate != gameDate):
+                    if((gameDate - prevDate).days == 1):
+                        streak +=1
+                    else:
+                        streak = 0
+                prevDate = gameDate
+                
+            avgScore += gs['score']
+            bestScore = max(bestScore, gs['score'])
+            
+
+        numGameScore = len(gameScores) if(len(gameScores)) != 0 else 1
+        avgScore = round(avgScore / numGameScore, 2)
+
+        with ui.row().classes('w-full justify-between items-center'):
+            ui.markdown(f'Average chain length')
+            ui.label(avgScore).style(f'color: {TEXT_SECONDARY}')
+
+        with ui.row().classes('w-full justify-between items-center'):
+            ui.markdown(f'Shortest chain length')
+            ui.label(bestScore).style(f'color: {TEXT_SECONDARY}')
+
+        with ui.row().classes('w-full justify-between items-center'):
+            ui.markdown(f'Daily streak')   
+            ui.label(streak).style(f'color: {TEXT_SECONDARY}')
+        
+        with ui.row().classes('w-full justify-between items-center'):
+            ui.markdown(f'Games played')   
+            ui.label(gamesPlayed).style(f'color: {TEXT_SECONDARY}')
+        
+    else:
+        ui.markdown('**No data found**.\n Play a game!').classes('absolute-center')
 
 @ui.refreshable
 def WinDialogElements(dialog: ui.dialog):
@@ -275,7 +380,7 @@ def WinDialogElements(dialog: ui.dialog):
             scrollArea.scroll_to(percent=100, duration=1)
 
     with ui.row().style('width: 100%; height: 10%').classes('justify-center'):
-        ui.button(icon='sym_r_navigate_next', on_click=lambda e: (dialog.close(), RestartBtn()))
+        ui.button(icon='sym_r_all_inclusive', on_click=lambda e: (dialog.close(), PracticeBtn()))
         ui.button(icon='sym_r_ios_share', on_click=lambda e: CopyClipboardGame())
 
     
@@ -355,10 +460,25 @@ def DictionaryText(word: str =""):
 
 @ui.refreshable
 def HeaderRow(dialogs: dict):
+    mode = app.storage.tab.get('mode')
+    icon = 'sym_r_today' if mode == 'daily' else 'sym_r_all_inclusive'
+
     with ui.row().style(f'height: {HEADER_HEIGHT}').classes('justify-between items-center w-full'):
         with ui.row().classes('justify-start').style('width: 30%'):
+            with ui.dropdown_button(text=mode).props(f'dropdown-icon={icon} no-icon-animation transition-show=jump-down transition-hide=jump-up') as dropdownButton:
+                with ui.item(on_click= lambda e: ChangeMode('daily')) as specialItem:
+                    specialItem.on_click(lambda e: dropdownButton.close())
+                    with ui.row().classes('justify-center items-center gap-1.5'):
+                        ui.icon('sym_r_today', color=TEXT_PRIMARY, size='125%')
+                        ui.label("Daily").style(f"color: {TEXT_PRIMARY}")
+                with ui.item(on_click= lambda e: ChangeMode('practice')) as specialItem:
+                    specialItem.on_click(lambda e: dropdownButton.close())
+                    with ui.row().classes('justify-center items-center gap-1.5'):
+                        ui.icon('sym_r_all_inclusive', color=TEXT_PRIMARY, size='125%')
+                        ui.label("Practice").style(f"color: {TEXT_PRIMARY}")
             ui.button(icon='sym_r_undo', on_click=lambda e: UndoBtn()).style('width: 10%')
-            ui.button(icon='sym_r_add_circle', on_click=lambda e: RestartBtn()).style('width: 10%')
+
+            # ui.button(icon='sym_r_add_circle', on_click=lambda e: RestartBtn()).style('width: 10%')
 
         ui.label(f'{GAME_NAME}').style(f'color: {TEXT_PRIMARY}; font-size: 250%; font-weight: bold').classes('absolute-center')
         with ui.row().classes('justify-end').style('width: 30%'):
@@ -374,6 +494,10 @@ def HeaderRow(dialogs: dict):
                     with ui.row().classes('justify-center items-center gap-1.5'):
                         ui.icon('sym_r_flag', color=TEXT_PRIMARY, size='125%')
                         ui.label("Give up").style(f"color: {TEXT_PRIMARY}")
+                with ui.item(on_click=lambda e: (dialogs['stats'].open(), dropdownButton.close())):
+                    with ui.row().classes('justify-center items-center gap-1.5'):
+                        ui.icon('sym_r_bar_chart', color=TEXT_PRIMARY, size='125%')
+                        ui.label("Stats").style(f"color: {TEXT_PRIMARY}")
                 with ui.item(on_click=lambda e: (dialogs['settings'].open(), dropdownButton.close())):
                     with ui.row().classes('justify-center items-center gap-1.5'):
                         ui.icon('sym_r_build', color=TEXT_PRIMARY, size='125%')
@@ -441,23 +565,38 @@ def CustomHTMTL():
     }
     </style>
     ''') #selection color
+    ui.add_css("""
+        body {
+            font-size: 16px; !important
+        }
+        .q-btn, .q-label, .q-input, .q-chip{
+            font-size: 16px; !important
+        }
+    """)
 
 def InitializeDialogs() -> dict:
     #global setup - dialogs
     _Dialogs = {}
     #stats dialog setup
-    
-    _Dialogs['stats'] = ui.dialog().props('transition-hide=fade transition-show=fade').style('backdrop-filter: none').classes('no-backdrop-dialog')
+
+    #stat dialog only
+    _Dialogs['stats'] = ui.dialog()
     statRadio = None
-    with _Dialogs['stats'], OverlayCard().classes('justify-between'):
+    with _Dialogs['stats'], OverlayCard().classes('justify-start items-center gap-0'):
         StatsDialogElements()
-        statRadio = ui.radio([' ', ''], value=' ', on_change= lambda e: _Dialogs['stats'].close()).props('inline size=xs')
+
+    #stat dialog combined with win dialog
+    _Dialogs['stats-win'] = ui.dialog().props('transition-hide=fade transition-show=fade').style('backdrop-filter: none').classes('no-backdrop-dialog')
+    statRadio = None
+    with _Dialogs['stats-win'], OverlayCard().classes('justify-start items-center gap-0'):
+        StatsDialogElements()
+        statRadio = ui.radio([' ', ''], value=' ', on_change= lambda e: _Dialogs['stats-win'].close()).props('inline size=xs')
 
     #winning dialogue setup
     _Dialogs['win'] = ui.dialog()
     with _Dialogs['win'] as dialog, OverlayCard():
         WinDialogElements(dialog)
-        ui.radio([' ', ''], value=' ', on_change= lambda e: _Dialogs['stats'].open()).props('inline size=xs').bind_value(statRadio, 'value')
+        ui.radio([' ', ''], value=' ', on_change= lambda e: _Dialogs['stats-win'].open()).props('inline size=xs').bind_value(statRadio, 'value')
 
     #info dialogue setup
     _Dialogs['info'] = ui.dialog()
@@ -484,16 +623,15 @@ def InitializeDialogs() -> dict:
 
     #settings tools dialog
     _Dialogs['settings'] = ui.dialog()
-    with _Dialogs['settings'], OverlayCard().classes('gap-4 justify-start'):
+    with _Dialogs['settings'], OverlayCard().style('height: 26.5rem').classes('gap-3 justify-start !important items-between'):
         with ui.row().classes('justify-center items-center gap-1.5'):
             ui.icon('sym_r_build', size="150%", color=TEXT_PRIMARY)
             ui.label("Settings").style(f"color: {TEXT_PRIMARY}; font-weight: bold; font-size: 150%")
-        ui.label('Site color:')
-        picker = ui.element('q-color').props('default-view=palette no-header no-footer')
+        picker = ui.element('q-color').props('default-view=palette no-header no-footer').classes('w-full')
         picker.on('update:model-value', lambda color: ChangeSiteColor(color.args))
         # picker.q_color.props('default-view=palette no-header no-footer')
         
-        ui.button(icon='sym_r_delete', text='Clear Data').classes('justify-center w-full')
+        ui.button(icon='sym_r_delete', text='Clear Data', on_click= lambda e: ClearUserData()).classes('justify-center w-full')
 
     return _Dialogs
             
@@ -502,15 +640,16 @@ def DevPage():
     ui.dark_mode().enable() 
     ui.label('nice try')
 
-@ui.page('/{_Seed}')
-async def GamePage(_Seed: str):
+async def GamePage(_Seed: str, mode: str):
     random.seed(_Seed)
 
     #initialize user storage
     if(app.storage.user.get('color') == None):
         app.storage.user['color'] = PRIMARY
-    if(app.storage.user.get('scores') == None):
-        app.storage.user['scores'] = []
+    if(app.storage.user.get('game-scores') == None):
+        app.storage.user['game-scores'] = []
+    if(app.storage.user.get('games-played') == None):
+        app.storage.user['games-played'] = 0
     
 
     await ui.context.client.connected()
@@ -518,7 +657,7 @@ async def GamePage(_Seed: str):
     CustomHTMTL()
 
     #define temporary game variables (marked with an '_')
-    if(_Seed!='daily'):
+    if(mode!='daily'):
         _StartWord, _TargetWord = GameLogic.GenerateStartEndWords(minDistance=0.5)
     else:
         terminals = GameLogic._DailyData[str(datetime.datetime.now().date())].split(', ')
@@ -529,6 +668,7 @@ async def GamePage(_Seed: str):
     app.storage.tab['word-chain'] = [_StartWord] #store a chain of words in the tab
     app.storage.tab['num-hints'] = 0 #store a number tracking hints in the tab
     app.storage.tab['given-up'] = False #store a boolean for given up in the tab
+    app.storage.tab['mode'] = mode #store a string for the users mode
     ui.context.client.button_manager = ToggleButtonManager()
 
     #DEBUG
@@ -547,12 +687,13 @@ async def GamePage(_Seed: str):
         HeaderRow(_Dialogs)
 
     with ui.column().style(f'width: {GAME_WIDTH}; justify-content: center; padding-top: 1rem').classes('h-full absolute-center'):
-        with ui.element().style('display: flex').classes('w-full justify-center items-center'):
+        with ui.row().classes('justify-center items-center w-full'):
             ui.chip(f"Chain similar words to get to the target",icon="sym_r_link").props("outlined")
+
 
         #show start and target
         TerminalCards()
-
+        
         inputWordBox = ui.input(placeholder="chain a word..."
                             ).props(f'autocomplete=off; autocapitalize=off; input-style="color: {BORDER_COLOR}"; autofocus'
                             ).classes(f' gap-0 items-center w-full')
@@ -571,6 +712,15 @@ async def GamePage(_Seed: str):
             ui.element('div').classes('my-4')
             DictionaryText()
 
+@ui.page('/daily')
+async def DailyPage():
+    await GamePage('daily', 'daily')
+
+@ui.page('/practice/{_Seed}')
+async def SeedPage(_Seed: str):
+    await GamePage(_Seed, 'practice')
+    
+
 @ui.page('/')
 def HomePage():
     #redirect to daily / random game
@@ -585,6 +735,11 @@ START OF AUTO-INDEX OR LOGIC
 
 -------------------------------------------------------------------------------
 """
-
-ui.run(reload=False, title=f"{GAME_NAME}", show=False, storage_secret='SWINGULARITY') #dont use reload (watch files) because leads to errors
+ui.run(
+    reload=False,
+    title=f"{GAME_NAME}",
+    show=False,
+    storage_secret='SWINGULARITY',
+    favicon='<svg xmlns="http://www.w3.org/2000/svg" enable-background="new 0 0 24 24" height="24px" viewBox="0 0 24 24" width="24px" fill="#e3e3e3"><g><rect fill="none" height="24" width="24"/></g><g><path d="M15,16v1.26l-6-3v-3.17L11.7,8H16V2h-6v4.9L7.3,10H3v6h5l7,3.5V22h6v-6H15z M12,4h2v2h-2V4z M7,14H5v-2h2V14z M19,20h-2v-2 h2V20z"/></g></svg>' #figure out how to scale this correctly
+)
 
