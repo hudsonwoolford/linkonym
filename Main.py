@@ -9,9 +9,8 @@ import FileManager
 import datetime
 import os
 
-#UI variables
-
-#UI colours and parameters
+#region PARAMETERS
+#constant UI colours and parameters
 GAME_NAME = "Linkonym"
 BORDER_COLOR = '#AAAAAA'
 BORDER_WIDTH = '0px'
@@ -30,335 +29,102 @@ POSITIVE = '#21ba45'
 NEGATIVE = '#c10015'
 INFO = '#31ccec'
 WARNING = '#f2c037'
-GAME_WIDTH= '22rem'
+GAME_WIDTH= '24rem'
 HEADER_HEIGHT = '4rem'
 NUM_DEFINITIONS = 2
-PORT = 8080
 MAX_TRACK_GAMES = 50
-WEBSITE_RANDOMIZE = random.Random()
+PORT = 8000
 
+#other globals (not constant)
+_WebRandom = random.Random()
+#endregion
 
-"""
-DEFAULTS
-primary:	Primary color (default: "#5898d4")
-secondary:	Secondary color (default: "#26a69a")
-accent:	Accent color (default: "#9c27b0")
-dark:	Dark color (default: "#1d1d1d")
-dark_page:	Dark page color (default: "#121212")
-text_white: White text color (default: "#555555")
-text_grey: Grey text color (default: "#777777")
-border_white: White border color (default: "#AAAAAA")
-positive:	Positive color (default: "#21ba45")
-negative:	Negative color (default: "#c10015")
-info:	Info color (default: "#31ccec")
-warning:	Warning color (default: "#f2c037")
-custom_colors:	Custom color definitions for branding (needs ui.colors to be called before custom color is ever used, added in version 2.2.0)
-"""
-EMBED_OPTIONS = {
-    "Wikipedia2014" :
-    {
-        "words"  : "./output/WikipediaWData.pt",
-        "banned" : "./output/WikipediaBData.pt"
-    }
-}
+#region PAGES
+#root page
+@ui.page('/')
+def RootPage():
+    ui.navigate.to('/daily')
 
+#daily game page
+@ui.page('/daily')
+async def DailyPage():
+    await GamePage('daily', mode='daily')
 
-""" 
--------------------------------------------------------------------------------
+#practice game page
+@ui.page('/practice/{seed}')
+async def DailyPage(seed: str):
+    await GamePage(seed, mode='practice')
 
-UTILITY FUNCTIONS
+#shared game page for rendering everything
+async def GamePage(seed: str, mode: str = 'daily'):
+#endregion
 
--------------------------------------------------------------------------------
-"""
-def OverlayCard() -> ui.card:
-    return ui.card().style(f'{BORDER_SETTINGS}; width: 20rem; height: 28rem').classes(f'hidden-scroll no-shadow items-center hidden-scrollbar')
-
-def CopyClipboardGame():
-    wordChain = app.storage.tab.get('word-chain')
-    terminalWords = app.storage.tab.get('terminal-words')
-    numHints = app.storage.tab.get('num-hints')
-
-    chain = ""
-    for word in wordChain:
-        chain += f"||{word}||\n"
-
-    ui.clipboard.write(f"""
-----------
-Check out my {GAME_NAME} game! 🙂
-
-Here's my word chain from '{terminalWords[0]}' to '{terminalWords[1]}': 🔗
-
-{chain}
-
-Score: {len(wordChain)-1} 🔥
-Hints: {numHints} 💡
-
-You can play the same game here: http://{GAME_NAME}.com/{app.storage.tab.get('seed')}
-----------
-""")
-    
-    ui.notify("Copied game to clipboard")
-
-
-""" 
--------------------------------------------------------------------------------
-
-REFRESHABLE ELEMENTS
-
--------------------------------------------------------------------------------
-"""
-#dialog card when you win the game
-
-""" 
--------------------------------------------------------------------------------
-
-PAGES
-
--------------------------------------------------------------------------------
-"""
-def CustomHTMTL():
-    color = app.storage.user.get('color')
-
-    #global setup - colours
-    ui.colors(primary=color, secondary=SECONDARY, accent=ACCENT, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING, dark=DARK, dark_page=DARK_PAGE)
-    ui.dark_mode().enable() 
-
-    #global setup - html
-    ui.add_head_html(
-    r'''
-    <style>
-    @keyframes fade {from {opacity: 0;} to {opacity: 1.0;}}
-    </style>
-    ''') #fading
-
-    ui.add_head_html(
-    r'''
-    <style>
-    .hidden-scrollbar {
-    overflow-y: scroll;
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none;  /* Internet Explorer 10+ */
-    }
-
-    .hidden-scrollbar::-webkit-scrollbar { /* WebKit */
-    width: 0;
-    height: 0;
-    }
-    </style>
-    <style>
-    .custom-button-content .q-btn__content {
-        width: 100% !important;
-        padding: 0 !important;
-        display: flex !important;
-        align-items: stretch !important;
-    }
-    .no-backdrop-dialog .q-dialog__backdrop{
-        background: rgba(0,0,0,0) !important; /* nothing - this better work */   
-    }
-    
-    </style>
-    ''')#other html
-
-    ui.add_head_html(
-    '''
-    <style>
-    :root {
-    --selection-color:''' + color + ''';
-    }
-    ::selection {
-    background: var(--selection-color);
-    }
-    </style>
-    ''') #selection color
-    ui.add_css("""
-        body {
-            font-size: 16px; !important
-        }
-        .q-btn, .q-label, .q-input, .q-chip{
-            font-size: 16px; !important
-        }
-    """)
-    ui.add_css("""
-        body {
-            overflow-y: auto;  /* Ensures vertical scrolling */
-        }
-    """)
-
-
-            
-@ui.page('/dev')
-def DevPage():
-    ui.dark_mode().enable() 
-    ui.label('nice try')
-
-async def GamePage(_Seed: str, mode: str):
-    pass
-
-@ui.page('/{_Seed}')
-async def DailyPage(_Seed):
-    async def GiveUp():
-        wordChain = app.storage.tab.get('word-chain')
-        numHints = app.storage.tab.get('num-hints')
-        terminalWords = app.storage.tab.get('terminal-words')
-
-        notif = ui.notification(timeout=None)
-        notif.message = 'Solving...'
-        notif.spinner = True
-
-        await asyncio.sleep(0.1)  #let the nicegui render the notification
-
-        #run HintWord in a thread so it doesn't block
-        loop = asyncio.get_running_loop()
-        for i in range(0, 20):
-            lastWord = wordChain[-1]
-            hint = await loop.run_in_executor(None, GameLogic.HintWord, lastWord, terminalWords[1], wordChain, 0.15)
-            GuessInput(hint)
-            wordChain = app.storage.tab.get('word-chain')
-            WordChain.refresh(True)
-            numHints += 1
-            if(GameLogic.WordSim(hint, terminalWords[1]) < GameLogic.DISTANCE_CUTOFF):
-                GuessInput(terminalWords[1])
-                numHints += 1
-                WordChain.refresh(True)
-                break
-
-        notif.dismiss()
-        
-        app.storage.tab['given-up'] = True
-        app.storage.tab['num-hints'] = numHints
-        WinGame()
-
-
-    async def Hint():
-        wordChain = app.storage.tab.get('word-chain')
-        numHints = app.storage.tab.get('num-hints')
-        terminalWords = app.storage.tab.get('terminal-words')
-
-        lastWord = wordChain[-1]
-
-        notif = ui.notification(timeout=None)
-        notif.message = 'Calculating hint...'
-        notif.spinner = True
-
-        if(GameLogic.WordSim(lastWord, terminalWords[1]) < GameLogic.DISTANCE_CUTOFF):
-            GuessInput(terminalWords[1])
-            WinGame()
-        else:
-            await asyncio.sleep(0.1)  #let the nicegui render the notification
-            
-            #run HintWord in a thread so it doesn't block
-            loop = asyncio.get_running_loop()
-            hint = await loop.run_in_executor(None, GameLogic.HintWord, lastWord, terminalWords[1], wordChain, 0.15)
-
-            GuessInput(hint)
-
-        WordChain.refresh(True)
-
-        notif.dismiss()
-
-        numHints +=1
-        app.storage.tab['num-hints'] = numHints
-
-    def ChangeMode(mode: str):
-        app.storage.tab['mode'] = mode
-        if(mode == 'practice'):
-            ui.navigate.to('/practice/'+str(WEBSITE_RANDOMIZE.randint(0, 50000000)))
-        elif(mode=='daily'):
-            ui.navigate.to('/daily')
-
-    def ClearUserData():
-        app.storage.user['color'] = PRIMARY
-        app.storage.user['game-scores'] = []
-        app.storage.user['games-played'] = 0
-
-    def ChangeSiteColor(color: str):
-        app.storage.user['color'] = color
-        ui.colors(primary=color, secondary=SECONDARY, accent=ACCENT, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING, dark=DARK, dark_page=DARK_PAGE)
-        ui.run_javascript(f'''
-        document.documentElement.style.setProperty('--selection-color', '{color}');
-        ''')
-        HeaderRow.refresh()
-        WordChain.refresh()
-        TerminalCards.refresh()
-        ui.notify(f"Changed site color to {color}", timeout=500)
-
-    def PracticeBtn():
-        ui.navigate.to('/practice/'+str(WEBSITE_RANDOMIZE.randint(0, 50000000)))
-        # GameLogic.RestartGame(_Seed if _UseSeed else None)
-        # DictionaryText.refresh()
-        # StartTargetCards.refresh()
-        # WordChain.refresh()
-        # _Dialogs['win'].clear()
-
-    #when user inputs guess from textbox
-    def GuessInput(guess: str):
-        wordChain = app.storage.tab.get('word-chain')
-        terminalWords = app.storage.tab.get('terminal-words')
-
-        valid, message, guess = GameLogic.ValidateGuess(guess, wordChain) #if guess is valid/(if it is in possible values and not banned)
-        if(valid):
-            valid, message = GameLogic.ValidateWordDist(guess, wordChain) #get result of guessing the word, valid if it is within distance
-
-            if(valid):
-                wordChain.append(guess)
-                app.storage.tab['word-chain'] = wordChain
-                WordChain.refresh(True)
-                ui.notify(message, type='positive', timeout=1500, position='bottom', badgeColor=POSITIVE, badgeTextColor=TEXT_PRIMARY)
-                if(guess == terminalWords[1]):
-                    WinGame()
-                    
-            else:
-                ui.notify(message, type='warning', timeout=1500, position='bottom', badgeColor='warning', badgeTextColor=TEXT_BLACK)
-        else:
-            ui.notify(message, type='negative', timeout=1500, position='bottom', badgeColor=NEGATIVE, badgeTextColor=TEXT_PRIMARY)
-
-        #reset and refocus box
-
-    def ClickToggleButton(word: str, tglBtn: ToggleButton):
-        btns = app.storage.client.get('toggle-btns')
-        tglBtn.enable(not tglBtn._state)
-        for b in btns:
-            if(b.link == tglBtn.link):
-                b.enable(tglBtn._state)
-            else:
-                b.enable(False)
-        app.storage.client['selected-word'] = word if tglBtn._state else ''
-        DictionaryText.refresh()
-
-    def WinGame():
-        seed = app.storage.tab.get('seed')
-        wordChain = app.storage.tab.get('word-chain')
-        score = len(wordChain)-1
-        gameScores = app.storage.user.get('game-scores')
-        gamesPlayed = app.storage.user.get('games-played')
-
-        #store data
-        gameScores.append({
-            'score' : score,
-            'seed' : seed,
-            'date' : str(datetime.datetime.now().date().strftime('%d/%m/%y'))
-        })
-        if(len(gameScores) > MAX_TRACK_GAMES):
-            gameScores = gameScores[-MAX_TRACK_GAMES:]
-        app.storage.user['game-scores'] = gameScores
-        gamesPlayed += 1
-        app.storage.user['games-played'] = gamesPlayed
-        StatsDialogElements.refresh()
-
-        #show dialog
-        dialogs = app.storage.client.get('dialogs')
-        WinDialogElements.refresh(dialogs['win'])
-        dialogs['win'].open()
-
-    def UndoBtn():
-        wordChain = app.storage.tab.get('word-chain')
-
-        wordChain = wordChain[:-1] if len(wordChain) > 1 else wordChain
-        app.storage.tab['word-chain'] = wordChain
-        WordChain.refresh(False)
-
+    #region REFRESHABLES
     @ui.refreshable
-    def StatsDialogElements():
+    def HeaderRow(dialogs: dict):
+        """
+        Creates all the objects seen in the website header. Should be a child of a header element.
+        """
+
+        modeIcon = 'sym_r_today' if mode == 'daily' else 'sym_r_all_inclusive'
+
+        #row for the entire header
+        with ui.row().style(f'height: {HEADER_HEIGHT}').classes('justify-between items-center w-full'):
+            #first 30%
+            with ui.row().classes('justify-start').style('width: 30%'):
+                with ui.dropdown_button().style('width: 10%').props(f'dropdown-icon={modeIcon} no-icon-animation transition-show=jump-down transition-hide=jump-up') as dropdownButton:
+                    with ui.item(on_click=lambda: ChangeMode('daily')) as specialItem:
+                        specialItem.on_click(lambda: dropdownButton.close())
+                        with ui.row().classes('justify-center items-center gap-1.5'):
+                            ui.icon('sym_r_today', color=TEXT_PRIMARY, size='125%')
+                            ui.label("Daily").style(f"color: {TEXT_PRIMARY}")
+                    with ui.item(on_click= lambda: ChangeMode('practice')) as specialItem:
+                        specialItem.on_click(lambda: dropdownButton.close())
+                        with ui.row().classes('justify-center items-center gap-1.5'):
+                            ui.icon('sym_r_all_inclusive', color=TEXT_PRIMARY, size='125%')
+                            ui.label("Practice").style(f"color: {TEXT_PRIMARY}")
+                ui.button(icon='sym_r_undo', on_click=lambda: (RemoveLastLink(), WordChain.refresh(False))).style('width: 10%')
+
+                # ui.button(icon='sym_r_add_circle', on_click=lambda e: RestartBtn()).style('width: 10%')
+
+            #game name
+            ui.label(f'{GAME_NAME}').style(f'color: {TEXT_PRIMARY}; font-size: 200%; font-weight: bold').classes('absolute-center')
+
+            async def HintLocal():
+                await Hint(WordChain.refresh)
+            async def GiveUpLocal():
+                await GiveUp(WordChain.refresh)
+
+            #last 30%
+            with ui.row().classes('justify-end').style('width: 30%'):
+                # CreateEmbedDropdown()
+                with ui.dropdown_button().style('width: 10%').props('dropdown-icon=sym_r_more_vert no-icon-animation transition-show=jump-down transition-hide=jump-up') as dropdownButton:
+                    with ui.item(on_click=HintLocal) as specialHintItem:
+                        specialHintItem.on_click(lambda: dropdownButton.close())
+                        with ui.row().classes('justify-center items-center gap-1.5'):
+                            ui.icon('sym_r_lightbulb', color=TEXT_PRIMARY, size='125%')
+                            ui.label("Hint").style(f"color: {TEXT_PRIMARY}")
+                    with ui.item(on_click=GiveUpLocal) as specialGiveUpItem:
+                        specialGiveUpItem.on_click(lambda: dropdownButton.close())
+                        with ui.row().classes('justify-center items-center gap-1.5'):
+                            ui.icon('sym_r_flag', color=TEXT_PRIMARY, size='125%')
+                            ui.label("Give up").style(f"color: {TEXT_PRIMARY}")
+                    with ui.item(on_click=lambda: (dialogs['stats'].open(), dropdownButton.close())):
+                        with ui.row().classes('justify-center items-center gap-1.5'):
+                            ui.icon('sym_r_bar_chart', color=TEXT_PRIMARY, size='125%')
+                            ui.label("Stats").style(f"color: {TEXT_PRIMARY}")
+                    with ui.item(on_click=lambda: (dialogs['settings'].open(), dropdownButton.close())):
+                        with ui.row().classes('justify-center items-center gap-1.5'):
+                            ui.icon('sym_r_build', color=TEXT_PRIMARY, size='125%')
+                            ui.label("Settings").style(f"color: {TEXT_PRIMARY}")
+                ui.button(icon='sym_r_info', on_click=lambda: dialogs['info'].open()).style('width: 10%')
+    
+    @ui.refreshable
+    def StatsElements():
+        """
+        Creates all the elements found in the stats dialog. Should be a child of the dialog element.
+        """
+
         gameScores: list = app.storage.user.get('game-scores')
         gamesPlayed: int = app.storage.user.get('games-played')
         with ui.row().classes('justify-center items-center gap-1.5'):
@@ -402,7 +168,7 @@ async def DailyPage(_Seed):
                     'type' : 'bar',
                     'data': [{'name': score['seed'], 'value': score['score'], 'date': score['date']} for score in gameScores],
                     'name' : 'Score',
-                    'color': app.storage.user.get('color')
+                    'color': app.storage.user.get('site-color')
                 }
             ]
             })
@@ -449,9 +215,13 @@ async def DailyPage(_Seed):
             
         else:
             ui.markdown('**No data yet!**').classes('absolute-center')
-
+    
     @ui.refreshable
-    def WinDialogElements(dialog: ui.dialog):
+    def WinElements():
+        """
+        Creates all the elements for the win dialog. Should be a child of a dialog element.
+        """
+
         wordChain = app.storage.tab.get('word-chain')
         givenUp = app.storage.tab.get('given-up')
         numHints = app.storage.tab.get('num-hints')
@@ -473,21 +243,40 @@ async def DailyPage(_Seed):
                 for i, w in enumerate(wordChain):
                     GameLogic.WordSim(w, terminalWords[1], 3)
                     ui.timeline_entry("",subtitle=w).style('height: 4rem').classes('p-0')
-                scrollArea.scroll_to(percent=100, duration=1)
+                scrollArea.scroll_to(percent=0)
+                ui.run_javascript(f"getElement('{scrollArea.id}').setScrollPosition('vertical', 100000000, 700)")
 
         with ui.row().style('width: 100%; height: 10%').classes('justify-center'):
-            ui.button(icon='sym_r_all_inclusive', on_click=lambda e: (dialog.close(), PracticeBtn()))
+            ui.button(icon='sym_r_add_circle', on_click=lambda e: (ui.navigate.to(f'/practice/{_WebRandom.randint(0, 50000000)}')))
             ui.button(icon='sym_r_ios_share', on_click=lambda e: CopyClipboardGame())
     
+    @ui.refreshable 
+    def TerminalCards():
+        """
+        Creates the start and target cards (terminals)
+        """
+
+        terminalWords = app.storage.tab.get('terminal-words')
+        color = app.storage.user.get('site-color')
+
+        #create cards for start and target
+        with ui.row().classes('gap-0 items-center justify-between w-full'):
+            start = ToggleButton(linkedId=terminalWords[0], label=terminalWords[0], col1=DARK, col2=color, on_enable=lambda e: DictionaryText.refresh()).style(BORDER_SETTINGS+"; width: 40%")
+            ui.icon("sym_r_keyboard_double_arrow_right", size="2rem", color=BORDER_COLOR)
+            end = ToggleButton(linkedId=terminalWords[1], label=terminalWords[1], col1=DARK, col2=color, on_enable=lambda e: DictionaryText.refresh()).style(BORDER_SETTINGS+"; width: 40%")
+            RegisterTglBtn(start)
+            RegisterTglBtn(end)
     
-
-        
-
     @ui.refreshable
     def WordChain(fadeIn: bool = True):
+        """
+        Creates the elements for the word chain. Should be a child of a scroll area.
+            Also calls win game if target word is the last word
+        """
+        
         terminalWords = app.storage.tab.get('terminal-words')
         wordChain = app.storage.tab.get('word-chain')
-        color = app.storage.user.get('color')
+        color = app.storage.user.get('site-color')
 
         #create a card for each word
         with ui.column().classes("w-full gap-2"):
@@ -497,42 +286,28 @@ async def DailyPage(_Seed):
                 #     chainMessage = f"({GameLogic.WordSim(word, GameLogic._WordChain[i+1], 3)})"
                 appendStyle = "" if i != len(wordChain) - 1 or not fadeIn  else "; animation: fade 0.3s"
                 
-                tglBtn = ToggleButton(linkedId=word, col1=DARK, col2=color).style(f"width: 100%; {BORDER_SETTINGS}" + appendStyle).classes(f'custom-button-content')
-                tglBtn.on_click(lambda e, wordPass = word, tb=tglBtn: ClickToggleButton(wordPass, tb))
-                tglBtns = app.storage.client.get('toggle-btns')
-                tglBtns.append(tglBtn) #register button
-                app.storage.client['toggle-btns'] = tglBtns
+                tglBtn = ToggleButton(linkedId=word, col1=DARK, col2=color, on_enable=lambda e: DictionaryText.refresh()).style(f"width: 100%; {BORDER_SETTINGS}" + appendStyle).classes(f'custom-button-content')
+                RegisterTglBtn(tglBtn)
                 with tglBtn:
                     with ui.row().style('width: 100%').classes('gap-4 h-full items-center justify-start text-left'):
                         ui.label(f'{i+1}').style(f'color: {TEXT_SECONDARY}')
                         ui.label(word).style(f'font-weight: normal; color: {TEXT_PRIMARY}')
                         ui.label(f'{chainMessage}').style(f'color: {TEXT_SECONDARY}').classes('ml-auto')
+                
+                if(word == terminalWords[1]):
+                    WinGame(StatsElements.refresh, WinElements.refresh)
 
         
         ui.element().style("height: 8rem").classes('w-full')
-        
-    @ui.refreshable 
-    def TerminalCards():
-        terminalWords = app.storage.tab.get('terminal-words')
-        color = app.storage.user.get('color')
-
-        #create cards for start and target
-        with ui.row().classes('gap-0 items-center justify-between w-full'):
-            start = ToggleButton(linkedId=terminalWords[0], label=terminalWords[0], col1=DARK, col2=color, on_click= lambda e:ClickToggleButton(terminalWords[0], start)).style(BORDER_SETTINGS+"; width: 40%")
-            ui.icon("sym_r_keyboard_double_arrow_right", size="2rem", color=BORDER_COLOR)
-            end = ToggleButton(linkedId=terminalWords[1], label=terminalWords[1], col1=DARK, col2=color, on_click= lambda e: ClickToggleButton(terminalWords[1], end)).style(BORDER_SETTINGS+"; width: 40%")
-            tglBtns = app.storage.client.get('toggle-btns')
-            tglBtns.append(start) #register button
-            tglBtns.append(end) #register button
-            app.storage.client['toggle-btns'] = tglBtns
-
+    
     @ui.refreshable
     def DictionaryText():
         word = app.storage.client.get('selected-word')
-        if(word != ''):
+        if(word != None and word != ''):
             ui.separator().style(f'background-color: {BORDER_COLOR}; animation: fade 0.5s')            
             ui.element('div').classes('my-2')
 
+            #retrieve definition
             definitionNotFound = False
             definitions = WordDictionary.getRecordsAdvanced(word)
             if(definitions == None or len(definitions.keys())==0): 
@@ -546,6 +321,7 @@ async def DailyPage(_Seed):
                     'pos_1' : 'No available definition'
                 }
             
+            #dictionary entry
             ui.label(word).style(f'font-size: 250%; font-weight: bold; color: {TEXT_PRIMARY}; text-align: left; animation: fade 1s')
             total = min(NUM_DEFINITIONS, sum(1 for key in definitions if key.startswith("definition_")))
             for i in range(1, total+1):
@@ -560,118 +336,196 @@ async def DailyPage(_Seed):
             
             ui.element('div').classes('my-4')
             ui.separator().style(f'background-color: {BORDER_COLOR}; animation: fade 0.5s')
+    #endregion
 
-    @ui.refreshable
-    def HeaderRow(dialogs: dict):
-        mode = app.storage.tab.get('mode')
-        icon = 'sym_r_today' if mode == 'daily' else 'sym_r_all_inclusive'
-
-        with ui.row().style(f'height: {HEADER_HEIGHT}').classes('justify-between items-center w-full'):
-            with ui.row().classes('justify-start').style('width: 30%'):
-                with ui.dropdown_button().props(f'dropdown-icon={icon} no-icon-animation transition-show=jump-down transition-hide=jump-up') as dropdownButton:
-                    with ui.item(on_click= lambda e: ChangeMode('daily')) as specialItem:
-                        specialItem.on_click(lambda e: dropdownButton.close())
-                        with ui.row().classes('justify-center items-center gap-1.5'):
-                            ui.icon('sym_r_today', color=TEXT_PRIMARY, size='125%')
-                            ui.label("Daily").style(f"color: {TEXT_PRIMARY}")
-                    with ui.item(on_click= lambda e: ChangeMode('practice')) as specialItem:
-                        specialItem.on_click(lambda e: dropdownButton.close())
-                        with ui.row().classes('justify-center items-center gap-1.5'):
-                            ui.icon('sym_r_all_inclusive', color=TEXT_PRIMARY, size='125%')
-                            ui.label("Practice").style(f"color: {TEXT_PRIMARY}")
-                ui.button(icon='sym_r_undo', on_click=lambda e: UndoBtn()).style('width: 10%')
-
-                # ui.button(icon='sym_r_add_circle', on_click=lambda e: RestartBtn()).style('width: 10%')
-
-            ui.label(f'{GAME_NAME}').style(f'color: {TEXT_PRIMARY}; font-size: 200%; font-weight: bold').classes('absolute-center')
-            with ui.row().classes('justify-end').style('width: 30%'):
-                # CreateEmbedDropdown()
-                with ui.dropdown_button().style('width: 10%').props('dropdown-icon=sym_r_more_vert no-icon-animation transition-show=jump-down transition-hide=jump-up') as dropdownButton:
-                    with ui.item(on_click= Hint) as specialHintItem:
-                        specialHintItem.on_click(lambda e: dropdownButton.close())
-                        with ui.row().classes('justify-center items-center gap-1.5'):
-                            ui.icon('sym_r_lightbulb', color=TEXT_PRIMARY, size='125%')
-                            ui.label("Hint").style(f"color: {TEXT_PRIMARY}")
-                    with ui.item(on_click=GiveUp) as specialGiveUpItem:
-                        specialGiveUpItem.on_click(lambda e: dropdownButton.close())
-                        with ui.row().classes('justify-center items-center gap-1.5'):
-                            ui.icon('sym_r_flag', color=TEXT_PRIMARY, size='125%')
-                            ui.label("Give up").style(f"color: {TEXT_PRIMARY}")
-                    with ui.item(on_click=lambda e: (dialogs['stats'].open(), dropdownButton.close())):
-                        with ui.row().classes('justify-center items-center gap-1.5'):
-                            ui.icon('sym_r_bar_chart', color=TEXT_PRIMARY, size='125%')
-                            ui.label("Stats").style(f"color: {TEXT_PRIMARY}")
-                    with ui.item(on_click=lambda e: (dialogs['settings'].open(), dropdownButton.close())):
-                        with ui.row().classes('justify-center items-center gap-1.5'):
-                            ui.icon('sym_r_build', color=TEXT_PRIMARY, size='125%')
-                            ui.label("Settings").style(f"color: {TEXT_PRIMARY}")
-                ui.button(icon='sym_r_info', on_click=lambda e: dialogs['info'].open()).style('width: 10%')
-
-    random.seed(_Seed)
-
-    #initialize user storage
-    if(app.storage.user.get('color') == None):
-        app.storage.user['color'] = PRIMARY
-    if(app.storage.user.get('game-scores') == None):
-        app.storage.user['game-scores'] = []
-    if(app.storage.user.get('games-played') == None):
-        app.storage.user['games-played'] = 0
-    
-
+    #region INITIALIZATION
     await ui.context.client.connected()
-    #inject custom html
-    CustomHTMTL()
+    userAgent = ui.context.client.request.headers['user-agent']
+    mobile = 'iPhone' in userAgent or 'Android' in userAgent
 
-    #define temporary game variables (marked with an '_')
-    if(_Seed!='daily'):
-        _StartWord, _TargetWord = GameLogic.GenerateStartEndWords(minDistance=0.5)
-    else:
-        terminals = GameLogic._DailyData[str(datetime.datetime.now().date())].split(', ')
-        _StartWord, _TargetWord = (terminals[0], terminals[1])
-    #storage temp vars
-    app.storage.tab['seed'] = _Seed
-    app.storage.tab['terminal-words'] = [_StartWord, _TargetWord] #store start and end words for optimisation
-    app.storage.tab['word-chain'] = [_StartWord] #store a chain of words in the tab
-    app.storage.tab['num-hints'] = 0 #store a number tracking hints in the tab
-    app.storage.tab['given-up'] = False #store a boolean for given up in the tab
-    app.storage.tab['mode'] = 'daily' #store a string for the users mode
-    app.storage.client['toggle-btns'] = []
-    app.storage.client['selected-word'] = ''
+    random.seed(seed)
+    startWord, targetWord = GetStartEndWords(seed, mode)
 
-    #DEBUG
-    # print(f"""
-    # {app.storage.tab.get('terminal-words')},
-    # {app.storage.tab.get('word-chain')},
-    # {app.storage.tab.get('num-hints')},
-    # {app.storage.tab.get('given-up')},
-    # """)
+    InitializeStorage(seed, startWord, targetWord) #initialize all storage variables
+    HeaderHTML() #inject custom html to header
+    dialogs = CreateDialogs(StatsElements, WinElements) #get dialogs
+    app.storage.client['dialogs'] = dialogs #store dialogs
 
-    #global setup - dialogs
-    _Dialogs = {}
-    #stats dialog setup
+    #endregion
+    #region ELEMENTS
+    
+    #header
+    with ui.header().style(f'background-color: {DARK}').style(f'font-size: 24; height: {HEADER_HEIGHT}').classes('py-0 w-screen font-weight-bold'):
+        HeaderRow(dialogs)
+
+    #main game column
+    gameWidth = '22rem' if mobile else GAME_WIDTH
+    with ui.column().style(f'width: {gameWidth}; padding-top: 1rem').classes('h-screen items-center mx-auto'):
+        with ui.row().classes('justify-center items-center w-full'):
+            ui.chip(f"Chain similar words to get to the target",icon="sym_r_link").props("outlined")
+
+
+        #show start and target
+        TerminalCards()
+        
+        inputWordBox = ui.input(placeholder="chain a word..."
+                            ).props(f'autocomplete=off; autocapitalize=off; input-style="color: {BORDER_COLOR}"; autofocus'
+                            ).classes(f' gap-0 items-center w-full')
+
+        #word chain scroll area
+        scrollArea = None
+        with ui.scroll_area().style(f"height: 40%; border-color: {BORDER_COLOR}; border-width: 1px; border-radius: {BORDER_RADIUS}; scroll-behaviour: smooth").classes(f'rounded w-full') as sa:
+
+            scrollArea = sa
+            WordChain(scrollArea)
+
+        with ui.element().style('height: 30%').classes('justify-start w-full'):
+            DictionaryText()
+
+        #wrapper function for what happens when the user enters a word
+        def OnEnterWord():
+            GuessInput(inputWordBox.value, WordChain.refresh)
+            inputWordBox.value = ""
+            ui.run_javascript(f"getElement('{inputWordBox.id}').focus()")
+            ui.run_javascript(f"getElement('{scrollArea.id}').setScrollPosition('vertical', 100000000, 400)")
+            scrollArea.scroll_to(percent=100, axis='vertical')
+
+
+        inputWordBox.on('keydown', lambda e: OnEnterWord() if e.args['key'] == "Enter" else None) #call wrapper if key is enter
+
+    
+            
+
+
+    #endregion
+
+#region UTILITY
+def HeaderHTML():
+    """
+    Add custom head html for global custom classes, font-sizes, etc
+        Requires site color storage to be set
+    """
+    
+    siteColor = app.storage.user.get('site-color')
+
+    #Global site colors
+    ui.colors(primary=siteColor, secondary=SECONDARY, accent=ACCENT, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING, dark=DARK, dark_page=DARK_PAGE)
+    ui.dark_mode().enable() 
+
+    #Fade animation
+    ui.add_head_html('''
+    <style>
+    @keyframes fade {from {opacity: 0;} to {opacity: 1.0;}}
+    </style>
+    ''')
+    
+    #Hidden scrollbar custom class
+    ui.add_head_html('''
+    <style>
+    .hidden-scrollbar {
+    overflow-y: scroll;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none;  /* Internet Explorer 10+ */
+    }
+
+    .hidden-scrollbar::-webkit-scrollbar { /* WebKit */
+    width: 0;
+    height: 0;
+    }
+    </style>
+    ''')
+    
+    #Custom button content for max width
+    ui.add_head_html('''
+    <style>
+    .custom-button-content .q-btn__content {
+        width: 100% !important;
+        padding: 0 !important;
+        display: flex !important;
+        align-items: stretch !important;
+    }
+    </style>
+    ''')
+
+    #Dialog without backdrop class
+    ui.add_head_html('''
+    <style>
+    .no-backdrop-dialog .q-dialog__backdrop{
+        background: rgba(0,0,0,0) !important;
+    }
+    </style>
+    ''')
+
+    #Site selection color / highlight color
+    ui.add_head_html('''
+    <style>
+    :root {
+    --selection-color:''' + siteColor + ''';
+    }
+    ::selection {
+    background: var(--selection-color);
+    }
+    </style>
+    ''') 
+    
+    #16px global font size - Cutoff for phone not auto zooming in
+    ui.add_head_html("""
+    <style>
+        body {
+            font-size: 16px; !important
+        }
+        .q-btn, .q-label, .q-input, .q-chip{
+            font-size: 16px; !important
+        }
+    </style>
+    """)
+
+    #Site scrolling
+    ui.add_head_html("""
+    <style>
+        body {
+            overflow-y: auto;  /* Ensures vertical scrolling */
+        }
+    </style>
+    """)
+
+def OverlayCard() -> ui.card:
+    """
+    Creates an overlay card with global settings, useful for dialogs like win, stats, settings etc
+    """
+    
+    return ui.card().style(f'{BORDER_SETTINGS}; width: 20rem; height: 28rem').classes(f'hidden-scroll no-shadow items-center hidden-scrollbar')
+
+def CreateDialogs(statElementsF, winElementsF) -> dict:
+    """
+    Creates all the dialogs and stores them in a dictionary
+    """
+
+    dialogs = {}
 
     #stat dialog only
-    _Dialogs['stats'] = ui.dialog()
+    dialogs['stats'] = ui.dialog()
     statRadio = None
-    with _Dialogs['stats'], OverlayCard().classes('justify-start items-center gap-0'):
-        StatsDialogElements()
+    with dialogs['stats'], OverlayCard().classes('justify-start items-center gap-0'):
+        statElementsF()
 
     #stat dialog combined with win dialog
-    _Dialogs['stats-win'] = ui.dialog().props('transition-hide=fade transition-show=fade').style('backdrop-filter: none').classes('no-backdrop-dialog')
+    dialogs['stats-win'] = ui.dialog().props('transition-hide=fade transition-show=fade').style('backdrop-filter: none').classes('no-backdrop-dialog')
     statRadio = None
-    with _Dialogs['stats-win'], OverlayCard().classes('justify-start items-center gap-0'):
-        StatsDialogElements()
-        statRadio = ui.radio([' ', ''], value=' ', on_change= lambda e: _Dialogs['stats-win'].close()).props('inline size=xs')
+    with dialogs['stats-win'], OverlayCard().classes('justify-start items-center gap-0'):
+        statElementsF()
+        statRadio = ui.radio([' ', ''], value=' ', on_change= lambda e: dialogs['stats-win'].close()).props('inline size=xs')
 
     #winning dialogue setup
-    _Dialogs['win'] = ui.dialog()
-    with _Dialogs['win'] as dialog, OverlayCard():
-        WinDialogElements(dialog)
-        ui.radio([' ', ''], value=' ', on_change= lambda e: _Dialogs['stats-win'].open()).props('inline size=xs').bind_value(statRadio, 'value')
+    dialogs['win'] = ui.dialog().props('persistent')
+    with dialogs['win'] as dialog, OverlayCard():
+        winElementsF()
+        ui.radio([' ', ''], value=' ', on_change= lambda e: dialogs['stats-win'].open()).props('inline size=xs').bind_value(statRadio, 'value')
+    
 
     #info dialogue setup
-    _Dialogs['info'] = ui.dialog()
-    with _Dialogs['info'], OverlayCard():
+    dialogs['info'] = ui.dialog()
+    with dialogs['info'], OverlayCard():
 
         descriptionCSS = f'color: #AAAAAA; font-style: normal; font-size: 90%'
         with ui.row().classes('justify-center items-center gap-1.5'):
@@ -693,8 +547,8 @@ async def DailyPage(_Seed):
             ui.link(text="Swingularity on STEAM", target="https://store.steampowered.com/app/3272450/Swingularity/", new_tab=True).style(descriptionCSS)
 
     #settings tools dialog
-    _Dialogs['settings'] = ui.dialog()
-    with _Dialogs['settings'], OverlayCard().style('height: 26.5rem').classes('gap-3 justify-start !important items-between'):
+    dialogs['settings'] = ui.dialog()
+    with dialogs['settings'], OverlayCard().style('height: 26.5rem').classes('gap-3 justify-start !important items-between'):
         with ui.row().classes('justify-center items-center gap-1.5'):
             ui.icon('sym_r_build', size="150%", color=TEXT_PRIMARY)
             ui.label("Settings").style(f"color: {TEXT_PRIMARY}; font-weight: bold; font-size: 150%")
@@ -704,63 +558,257 @@ async def DailyPage(_Seed):
         
         ui.button(icon='sym_r_delete', text='Clear Data', on_click= lambda e: ClearUserData()).classes('justify-center w-full')
 
+    return dialogs
+
+def InitializeStorage(seed: str, startWord: str, targetWord: str):
+    """
+    Initializes all tab, user, and client storage. User storage will not be overwritten, but will be initialized if they don't exist.
+    """
+
+    #ensure user storage exists
+    if(app.storage.user.get('site-color') == None):
+        app.storage.user['site-color'] = PRIMARY
+    if(app.storage.user.get('game-scores') == None):
+        app.storage.user['game-scores'] = []
+    if(app.storage.user.get('games-played') == None):
+        app.storage.user['games-played'] = 0
+
+    #temp tab storage
+    app.storage.tab['seed'] = seed
+    app.storage.tab['terminal-words'] = [startWord, targetWord] #store start and end words for optimisation
+    app.storage.tab['word-chain'] = [startWord] #store a chain of words in the tab
+    app.storage.tab['num-hints'] = 0 #store a number tracking hints in the tab
+    app.storage.tab['given-up'] = False #store a boolean for given up in the tab
+    app.storage.tab['mode'] = 'daily' #store a string for the users mode
+
+    #temp client storage
+    app.storage.client['toggle-btns'] = []
+    app.storage.client['selected-word'] = ''
+
+def ChangeMode(mode: str):
+    app.storage.tab['mode'] = mode
+    if(mode == 'practice'):
+        ui.navigate.to(f'/practice/{_WebRandom.randint(0, 50000000)}')
+    elif(mode=='daily'):
+        ui.navigate.to('/daily')
+
+def ChangeSiteColor(color: str):
+    """
+    Changes the primary color of the site to specified paremeter
+    """
+
+    app.storage.user['color'] = color
+    ui.colors(primary=color, secondary=SECONDARY, accent=ACCENT, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING, dark=DARK, dark_page=DARK_PAGE)
+    ui.run_javascript(f'''
+    document.documentElement.style.setProperty('--selection-color', '{color}');
+    ''')
+    ui.notify(f"Changed site color to {color}", timeout=500)
+
+def ClearUserData():
+    """
+    Resets all storage for the user, equivalent to clearing.
+    """
+    app.storage.user['color'] = PRIMARY
+    app.storage.user['game-scores'] = []
+    app.storage.user['games-played'] = 0
+
+def RemoveLastLink():
+    wordChain = app.storage.tab.get('word-chain')
+    wordChain = wordChain[:-1] if len(wordChain) > 1 else wordChain
+    app.storage.tab['word-chain'] = wordChain
+
+def GetStartEndWords(seed: str, mode: str) -> tuple[str, str]:
+    """
+    Returns the start and end words for the corresponding seed and mode
+    """
+
+    if(mode == 'daily'):
+        #daily word retrieval
+        terminals = GameLogic._DailyData[str(datetime.datetime.now().date())].split(', ')
+        return terminals[0], terminals[1]
+    else:
+        return GameLogic.GenerateStartEndWords(minDistance=0.5)
+
+def CopyClipboardGame():
+    """
+    Copies a share message of the game to the users clipboard.
+    """
+
+    wordChain = app.storage.tab.get('word-chain')
+    terminalWords = app.storage.tab.get('terminal-words')
+    numHints = app.storage.tab.get('num-hints')
+
+    #spoiler formatted chain
+    chain = ""
+    for word in wordChain:
+        chain += f"||{word}||\n"
+
+    #write to clipboard
+    ui.clipboard.write(f"""----------
+Check out my {GAME_NAME} game! 🙂
+
+Here's my word chain from '{terminalWords[0]}' to '{terminalWords[1]}': 🔗
+
+{chain}
+
+Score: {len(wordChain)-1} 🔥
+Hints: {numHints} 💡
+
+You can play the same game here: http://{GAME_NAME}.com/{app.storage.tab.get('seed')}
+----------""")
     
-    app.storage.client['dialogs'] = _Dialogs
+    ui.notify("Copied game to clipboard")
 
-    #header
-    with ui.header().style(f'background-color: {DARK}').style(f'font-size: 24; height: {HEADER_HEIGHT}').classes('py-0 w-screen font-weight-bold'):
-        HeaderRow(_Dialogs)
+def GuessInput(guess: str, refreshWordChain):
+    """
+    Guesses the word, validates it, checks distance, notifies user on status, and appends to word chain if valid 
+    """
 
-    with ui.column().style(f'width: {GAME_WIDTH}; justify-content: center; padding-top: 1rem').classes('h-full absolute-center'):
-        with ui.row().classes('justify-center items-center w-full'):
-            ui.chip(f"Chain similar words to get to the target",icon="sym_r_link").props("outlined")
+    wordChain = app.storage.tab.get('word-chain')
+    terminalWords = app.storage.tab.get('terminal-words')
 
+    valid, message, guess = GameLogic.ValidateGuess(guess, wordChain) #if guess is valid/(if it is in possible values and not banned)
+    if(valid):
+        valid, message = GameLogic.ValidateWordDist(guess, wordChain) #get result of guessing the word, valid if it is within distance
 
-        #show start and target
-        TerminalCards()
+        if(valid):
+            wordChain.append(guess)
+            app.storage.tab['word-chain'] = wordChain
+            refreshWordChain(True)
+            ui.notify(message, type='positive', timeout=1500, position='bottom', badgeColor=POSITIVE, badgeTextColor=TEXT_PRIMARY)
+                
+        else:
+            ui.notify(message, type='warning', timeout=1500, position='bottom', badgeColor='warning', badgeTextColor=TEXT_BLACK)
+    else:
+        ui.notify(message, type='negative', timeout=1500, position='bottom', badgeColor=NEGATIVE, badgeTextColor=TEXT_PRIMARY)
+
+def WinGame(refreshStats, refreshWin):
+    seed = app.storage.tab.get('seed')
+    wordChain = app.storage.tab.get('word-chain')
+    score = len(wordChain)-1
+    gameScores = app.storage.user.get('game-scores')
+    gamesPlayed = app.storage.user.get('games-played')
+    dialogs = app.storage.client.get('dialogs')
+
+    #update stats
+    gameScores.append({
+        'score' : score,
+        'seed' : seed,
+        'date' : str(datetime.datetime.now().date().strftime('%d/%m/%y'))
+    })
+    if(len(gameScores) > MAX_TRACK_GAMES):
+        gameScores = gameScores[-MAX_TRACK_GAMES:]
+    app.storage.user['game-scores'] = gameScores
+
+    gamesPlayed += 1
+    app.storage.user['games-played'] = gamesPlayed
+
+    refreshStats()
+
+    #show dialog
+    refreshWin()
+    dialogs['win'].open()
+
+def RegisterTglBtn(btn: ToggleButton):
+    btns = app.storage.client.get('toggle-btns')
+    btns.append(btn)
+    app.storage.client['toggle-btns'] = btns
+
+    btn.on_click(lambda: ToggleLink(btn))
+
+def ToggleLink(btn: ToggleButton):
+    enable = not btn._state
+    app.storage.client['selected-word'] = btn.link if enable else ''
+
+    btns = app.storage.client.get('toggle-btns')
+    for b in btns:
+        if(b.link == btn.link):
+            b.enable(enable)
+        else:
+            b.enable(False)
+
+async def Hint(refreshWordChain):
+    """
+    Queries gamelogic to determine and guess a hint
+    """
+
+    wordChain = app.storage.tab.get('word-chain')
+    numHints = app.storage.tab.get('num-hints')
+    terminalWords = app.storage.tab.get('terminal-words')
+
+    lastWord = wordChain[-1]
+
+    notif = ui.notification(timeout=None)
+    notif.message = 'Calculating hint...'
+    notif.spinner = True
+
+    if(GameLogic.WordSim(lastWord, terminalWords[1]) < GameLogic.DISTANCE_CUTOFF):
+        GuessInput(terminalWords[1], refreshWordChain)
+    else:
+        await asyncio.sleep(0.1)  #let the nicegui render the notification
         
-        inputWordBox = ui.input(placeholder="chain a word..."
-                            ).props(f'autocomplete=off; autocapitalize=off; input-style="color: {BORDER_COLOR}"; autofocus'
-                            ).classes(f' gap-0 items-center w-full')
-        inputWordBox.on('keydown', lambda e: GuessInput(inputWordBox.value) if e.args['key'] == "Enter" else None)
-        def OnEnterWord():
-            inputWordBox.value = ""
-            ui.run_javascript(f"document.getElementById('{inputWordBox.id}').focus()")
-        inputWordBox.on('keydown', lambda e: OnEnterWord() if e.args['key'] == "Enter" else None)
+        #run HintWord in a thread so it doesn't block
+        loop = asyncio.get_running_loop()
+        hint = await loop.run_in_executor(None, GameLogic.HintWord, lastWord, terminalWords[1], wordChain, 0.15)
+
+        GuessInput(hint, refreshWordChain)
+
+    refreshWordChain(True)
+
+    notif.dismiss()
+
+    numHints +=1
+    app.storage.tab['num-hints'] = numHints
+
+async def GiveUp(refreshWordChain):
+    """
+    The equivalent of looping hint until solved
+    """
+
+    wordChain = app.storage.tab.get('word-chain')
+    numHints = app.storage.tab.get('num-hints')
+    terminalWords = app.storage.tab.get('terminal-words')
+
+    notif = ui.notification(timeout=None)
+    notif.message = 'Solving...'
+    notif.spinner = True
+
+    await asyncio.sleep(0.1)  #let the nicegui render the notification
+
+    #run HintWord in a thread so it doesn't block
+    loop = asyncio.get_running_loop()
+    for i in range(0, 20):
+        lastWord = wordChain[-1]
+        hint = await loop.run_in_executor(None, GameLogic.HintWord, lastWord, terminalWords[1], wordChain, 0.15)
+        GuessInput(hint, refreshWordChain)
+        wordChain = app.storage.tab.get('word-chain')
+        refreshWordChain(True)
+        numHints += 1
+        if(GameLogic.WordSim(hint, terminalWords[1]) < GameLogic.DISTANCE_CUTOFF):
+            app.storage.tab['given-up'] = True
+            app.storage.tab['num-hints'] = numHints
+            GuessInput(terminalWords[1], refreshWordChain)
+            numHints += 1
+            refreshWordChain(True)
+            break
+
+    notif.dismiss()
     
 
-        #word chain scroll area
-        with ui.element().classes("h-screen w-full"):
-            with ui.scroll_area().style(f"height: 60%; border-color: {BORDER_COLOR}; border-width: 1px; border-radius: {BORDER_RADIUS}").classes(f'rounded w-full') as scrollArea:
-                WordChain(scrollArea)
-                inputWordBox.on('keydown', lambda e: scrollArea.scroll_to(percent=100, axis='vertical', duration=0.5) if e.args['key'] == "Enter" else None)
-            ui.element('div').classes('my-4')
-            DictionaryText()
-
-@ui.page('/practice/{_Seed}')
-async def SeedPage(_Seed: str):
-    await GamePage(_Seed, 'practice')
-    
-
-@ui.page('/')
-def HomePage():
-    #redirect to daily / random game
-    ui.navigate.to('/daily')
-
-
-
-""" 
--------------------------------------------------------------------------------
-
-START OF AUTO-INDEX OR LOGIC
-
--------------------------------------------------------------------------------
+#region LOGIC
 """
-ui.run(
-    reload=False,
-    title=f"{GAME_NAME}",
-    show=False,
-    storage_secret='SWINGULARITY',
-    favicon='<svg xmlns="http://www.w3.org/2000/svg" enable-background="new 0 0 24 24" height="24px" viewBox="0 0 24 24" width="24px" fill="#e3e3e3"><g><rect fill="none" height="24" width="24"/></g><g><path d="M15,16v1.26l-6-3v-3.17L11.7,8H16V2h-6v4.9L7.3,10H3v6h5l7,3.5V22h6v-6H15z M12,4h2v2h-2V4z M7,14H5v-2h2V14z M19,20h-2v-2 h2V20z"/></g></svg>' #figure out how to scale this correctly
-)
 
+START OF AUTO INDEX PAGE / SCRIPT LOGIC
+
+"""
+
+#RUN UI
+ui.run(
+    reload=False, #watch files causes issues
+    title=f"{GAME_NAME}",
+    show=False, #dont reload
+    storage_secret='SWINGULARITY',
+    port= PORT,
+    favicon='<svg xmlns="http://www.w3.org/2000/svg" enable-background="new 0 0 24 24" height="24px" viewBox="0 0 24 24" width="24px" fill="#e3e3e3"><g><rect fill="none" height="24" width="24"/></g><g><path d="M15,16v1.26l-6-3v-3.17L11.7,8H16V2h-6v4.9L7.3,10H3v6h5l7,3.5V22h6v-6H15z M12,4h2v2h-2V4z M7,14H5v-2h2V14z M19,20h-2v-2 h2V20z"/></g></svg>'
+)
+#endregion
