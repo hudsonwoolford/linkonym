@@ -16,18 +16,17 @@ class ToggleButtonManager():
                 b.enable(False)
 
 class ToggleButton(ui.button):
-    def __init__(self, linkedId, label: str = None, on_click: Optional[Callable]= None, col1: str= "#000000", col2: str= "#111111",  *args, **kwargs) -> None:
+    def __init__(self, linkedId, label: str = None, on_enable: Optional[Callable[[bool], None]]= None, col1: str= "#000000", col2: str= "#111111",  *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._state = False
         self.link = linkedId
         self.label = label
         self.col1 = col1
         self.col2 = col2
+        self.onEnable = on_enable
         self.classes('c-toggle__btn')
         self.enable(False)
-        if(on_click != None):
-            self.on('click', lambda: on_click(self))
-        
+    
         with self.style(f"height: 3rem; box-shadow: none !important; text-transform: none;").props('unelevated'):
             if(label != None):
                 ui.label(label).style(f'font-weight: normal')
@@ -35,6 +34,8 @@ class ToggleButton(ui.button):
 
     def enable(self, enable: bool) -> None:
         self._state = enable
+        if(self.onEnable != None):
+            self.onEnable(enable)
         self.update()
     
     def is_toggled(self) -> bool:
