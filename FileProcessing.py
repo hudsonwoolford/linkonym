@@ -3,6 +3,8 @@ import stanza.pipeline
 import torch
 import stanza
 import time
+import GameLogic
+import pandas as pd
 
 def AddWord(embedsPath: str, appendPath: str, appendWord: str):
     appendWord = appendWord.lower()
@@ -198,18 +200,85 @@ def ProcessEmbedsToPT(path: str,
     torch.save(bannedWordData, bannedPath)
     print(f"Done! Completed file - wrote {wordIteration} words and {bannedIteration} banned words to their respective files.")
 
+import torch
+import pandas as pd
 
-processors = "tokenize, mwt, pos, lemma" #processors required for lemmatarization and noun identification
-prenlp = stanza.Pipeline(lang='en', processors=processors, device='cuda', download_method=None)
-del processors
+def CreateEdgeCSV(edgePath: str, wordData: dict, similarityCutoff: float = 0.675):
+    print("Initializing...")
+    edgeDict = {
+        'source': [],
+        'target': [],
+    }
 
-ProcessEmbedsToPT("input/numberbatch-en.txt"                        , nlp=prenlp, minLength=3, maxLength=50, alphabetOnly=True, checkDic=True, allowDigits=False, bannedPos=["PRON", "DET", "CCONJ", "SCONJ", "PART", "PUNCT", "AUX", "INTJ", "ADV", "ADP"], skipLines=[0], dataPath="output/NumberBatchWData.pt", bannedPath="output/NumberBatchBData.pt")
-ProcessEmbedsToPT("input/wiki-news-300d-1M.vec"                     , nlp=prenlp, minLength=3, maxLength=50, alphabetOnly=True, checkDic=True, allowDigits=False, bannedPos=["PRON", "DET", "CCONJ", "SCONJ", "PART", "PUNCT", "AUX", "INTJ", "ADV", "ADP"], skipLines=[0], dataPath="output/WikiNewsWData.pt", bannedPath="output/WikiNewsBData.pt")
-ProcessEmbedsToPT("input/GoogleNews-vectors-negative300.txt"        , nlp=prenlp, minLength=3, maxLength=50, alphabetOnly=True, checkDic=True, allowDigits=False, bannedPos=["PRON", "DET", "CCONJ", "SCONJ", "PART", "PUNCT", "AUX", "INTJ", "ADV", "ADP"], skipLines=[0], dataPath="output/GoogleNewsWData.pt", bannedPath="output/GoogleNewsBData.pt")
-ProcessEmbedsToPT("input/lexvec.commoncrawl.300d.W.pos.neg3.vectors", nlp=prenlp, minLength=3, maxLength=50, alphabetOnly=True, checkDic=True, allowDigits=False, bannedPos=["PRON", "DET", "CCONJ", "SCONJ", "PART", "PUNCT", "AUX", "INTJ", "ADV", "ADP"], skipLines=[0], dataPath="output/LexVecWData.pt", bannedPath="output/LexVecBData.pt")
+    wordInfo = wordData['vocab']
+    allWords = list(wordInfo.keys())
 
-# ProcessGloveToPT("input/glove.6B.100d.txt", minLength=3, maxLength=50, alphabetOnly=True, checkDic=True, allowDigits=False, bannedPos=["PRON", "DET", "CCONJ", "SCONJ", "PART", "PUNCT", "AUX", "INTJ", "ADV", "ADP"])
-# wordData = torch.load("output/WikipediaWordData.pt")
-# print(wordData["vocab"])
-# AddWord("input/glove.6B.100d.txt", "output/WikipediaWordData.pt", "america")
-# TransferPosWords("output/WikipediaWordData.pt", "output/WikipediaBannedData.pt", posFilter=["ADV", "ADP"])
+    embeds = []
+    for w in allWords:
+        embeds.append(wordData['emb'][wordInfo[w]['id']])
+
+    vectors: torch.Tensor = torch.stack(embeds)
+    
+    print("Normalizing...")
+    vectors = vectors / vectors.norm(dim=1, keepdim=True) #normalize
+    print("Multiplying...")
+    simMatrix = (torch.matmul(vectors, vectors.T)+1)/2
+    print("Culling...")
+    simMatrix = torch.triu(simMatrix, diagonal=1)
+    print("Comparing...")
+    simMatrix = torch.nonzero(simMatrix>similarityCutoff)
+
+    print("Appending...")
+    for coords in simMatrix:
+        edgeDict['source'].append(allWords[coords[0]])
+        edgeDict['target'].append(allWords[coords[1]])
+
+    print("Saving...")
+    edgeDf = pd.DataFrame(edgeDict)
+    edgeDf.to_csv(edgePath, index=False)
+
+def ConvertCSVToID(loadPath: str, savePath: str, wordData: dict):
+    df = pd.read_csv(loadPath)
+
+    newList = []
+    for w in df['source']:
+        newList.append(wordData['vocab'][w]['id'])
+    
+    df['source'] = newList
+
+    newList = []
+    for w in df['target']:
+        newList.append(wordData['vocab'][w]['id'])
+    
+    df['target'] = newList
+    
+    df.to_csv(savePath)
+
+def CreateNodesCSV(nodePath: str, wordData: dict):
+    nodeDict = {
+        'id': [],
+        'label': [],
+    }
+
+    wordInfo = wordData['vocab']
+    allWords = list(wordInfo.keys())
+    # Iterate over all words to populate the node dictionary
+    for word in allWords:
+        nodeDict["id"].append(wordInfo[word]['id'])
+        nodeDict["label"].append(word)
+    
+    # Convert dictionaries to DataFrames and write them to CSV
+    nodeDf = pd.DataFrame(nodeDict)
+    
+    nodeDf.to_csv(nodePath, index=False)
+
+# CreateEdgeCSV('output/WordEdges.csv', GameLogic._WordData)
+ConvertCSVToID('output/WordEdges.csv', 'output/WordEdgesID.csv', GameLogic._WordData)
+# processors = "tokenize, mwt, pos, lemma" #processors required for lemmatarization and noun identification
+# prenlp = stanza.Pipeline(lang='en', processors=processors, device='cuda', download_method=None)
+# del processors
+
+# ProcessEmbedsToPT("input/numberbatch-en.txt"                        , nlp=prenlp, minLength=3, maxLength=50, alphabetOnly=True, checkDic=True, allowDigits=False, bannedPos=["PRON", "DET", "CCONJ", "SCONJ", "PART", "PUNCT", "AUX", "INTJ", "ADV", "ADP"], skipLines=[0], dataPath="output/NumberBatchWData.pt", bannedPath="output/NumberBatchBData.pt")
+# ProcessEmbedsToPT("input/wiki-news-300d-1M.vec"                     , nlp=prenlp, minLength=3, maxLength=50, alphabetOnly=True, checkDic=True, allowDigits=False, bannedPos=["PRON", "DET", "CCONJ", "SCONJ", "PART", "PUNCT", "AUX", "INTJ", "ADV", "ADP"], skipLines=[0], dataPath="output/WikiNewsWData.pt", bannedPath="output/WikiNewsBData.pt")
+# ProcessEmbedsToPT("input/GoogleNews-vectors-negative300.txt"        , nlp=prenlp, minLength=3, maxLength=50, alphabetOnly=True, checkDic=True, allowDigits=False, bannedPos=["PRON", "DET", "CCONJ", "SCONJ", "PART", "PUNCT", "AUX", "INTJ", "ADV", "ADP"], skipLines=[0], dataPath="output/GoogleNewsWData.pt", bannedPath="output/GoogleNewsBData.pt")
+# ProcessEmbedsToPT("input/lexvec.commoncrawl.300d.W.pos.neg3.vectors", nlp=prenlp, minLength=3, maxLength=50, alphabetOnly=True, checkDic=True, allowDigits=False, bannedPos=["PRON", "DET", "CCONJ", "SCONJ", "PART", "PUNCT", "AUX", "INTJ", "ADV", "ADP"], skipLines=[0], dataPath="output/LexVecWData.pt", bannedPath="output/LexVecBData.pt")

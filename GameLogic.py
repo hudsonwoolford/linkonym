@@ -17,6 +17,7 @@ WORD_CATEGORY = {
 #persistant game variables
 _nlp = None #natural language processor
 _WordData = None #global word data
+_LemmaWordInfo = None #global word info for only lemma
 _BannedData = None #global banned word data
 _DailyData = None #global daily data
 
@@ -135,27 +136,30 @@ def RemoveFeatureSuffix(word: str, feat: str, suffixes: list):
             word = noSWord
     
     return word
+
+def LemmatarizedDict(wordInfo: dict):
+    lemmaDict = {}
+    for i, w in enumerate(wordInfo.keys()):
+        lemmaWord = wordInfo[w]["lemma"]
+        if(lemmaWord in wordInfo.keys() and lemmaWord not in lemmaDict.keys()):
+            lemmaDict[lemmaWord] = wordInfo[lemmaWord]
     
+    return lemmaDict
+
 def GenerateStartEndWords(minDistance: float = 0.325) -> tuple[str, str]:
     """
     Generates start and end words for game randomly, optional minDistance parameter
     """
 
-    end = RandomKey(_WordData["vocab"], TERMINAL_RANGE)
-    while _WordData["vocab"][end]["pos"] in WORD_CATEGORY["halfBanned"]:
-        end = RandomKey(_WordData["vocab"], TERMINAL_RANGE)
+    end = RandomKey(_LemmaWordInfo, TERMINAL_RANGE)
+    while _LemmaWordInfo[end]["pos"] in WORD_CATEGORY["halfBanned"]:
+        end = RandomKey(_LemmaWordInfo, TERMINAL_RANGE)
 
-    end = RemoveFeatureSuffix(end, "Number=Plur", "s") #make plur sing
-    end = RemoveFeatureSuffix(end, "Tense=Past", ["ed","d"]) #make past present
 
-    start = RandomKey(_WordData["vocab"], TERMINAL_RANGE)
-    start = RemoveFeatureSuffix(start, "Number=Plur", "s") #make plur sing
-    start = RemoveFeatureSuffix(start, "Tense=Past", ["ed","d"]) #make past present
     K = 0
-    while  _WordData["vocab"][start]["pos"] in WORD_CATEGORY["halfBanned"] or WordSim(start, end) < minDistance:
-        start = RandomKey(_WordData["vocab"], TERMINAL_RANGE)
-        start = RemoveFeatureSuffix(start, "Number=Plur", "s") #make plur sing
-        start = RemoveFeatureSuffix(start, "Tense=Past", ["ed","d"]) #make past present
+    start = RandomKey(_LemmaWordInfo, TERMINAL_RANGE)
+    while  _LemmaWordInfo[start]["pos"] in WORD_CATEGORY["halfBanned"] or WordSim(start, end) < minDistance:
+        start = RandomKey(_LemmaWordInfo, TERMINAL_RANGE)
         K+=1
         if(K > 10000):
             print("Warning: Taking too long to determine start and end words, maybe lower minDistance or raise terminal range?")
@@ -165,11 +169,12 @@ def GenerateStartEndWords(minDistance: float = 0.325) -> tuple[str, str]:
 
 
 def LoadWordData(wordPath: str, bannedPath: str, dailyPath: str):
-    global _WordData, _BannedData, _DailyData
+    global _WordData, _BannedData, _DailyData, _LemmaWordInfo
 
     _WordData = torchLoad(wordPath)
     _BannedData = torchLoad(bannedPath)
     _DailyData = FileManager.LoadJsonDict(dailyPath)
+    _LemmaWordInfo = LemmatarizedDict(_WordData['vocab'])
 
     # _WordData["vocab"] = StanzaUtility.LemmatarizedDict(_WordData["vocab"]) #get lemma only
 
@@ -192,7 +197,7 @@ LoadWordData(os.path.join(baseDir,'data/WikipediaWData.pt'), os.path.join(baseDi
 
 # dailyGames = CreateDailyGames(365, 0)
 # import FileManager
-# FileManager.SaveJsonDict(dailyGames, 'output/DailyGames.json')
+# FileManager.SaveJsonDict(dailyGames, 'data/DailyGames.json')
 
 
 

@@ -82,7 +82,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
                         specialItem.on_click(lambda: dropdownButton.close())
                         with ui.row().classes('justify-center items-center gap-1.5'):
                             ui.icon('sym_r_all_inclusive', color=TEXT_PRIMARY, size='125%')
-                            ui.label("Practice").style(f"color: {TEXT_PRIMARY}")
+                            ui.label("Seeded").style(f"color: {TEXT_PRIMARY}")
                 ui.button(icon='sym_r_undo', on_click=lambda: (RemoveLastLink(), WordChain.refresh(False))).style('width: 10%')
 
                 # ui.button(icon='sym_r_add_circle', on_click=lambda e: RestartBtn()).style('width: 10%')
@@ -597,7 +597,7 @@ def ChangeSiteColor(color: str):
     Changes the primary color of the site to specified paremeter
     """
 
-    app.storage.user['color'] = color
+    app.storage.user['site-color'] = color
     ui.colors(primary=color, secondary=SECONDARY, accent=ACCENT, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING, dark=DARK, dark_page=DARK_PAGE)
     ui.run_javascript(f'''
     document.documentElement.style.setProperty('--selection-color', '{color}');
