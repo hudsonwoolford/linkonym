@@ -40,6 +40,16 @@ _WebRandom = random.Random()
 #endregion
 
 #region PAGES
+#stat page
+@ui.page('/pistats')
+def PiStatsPage():
+    ui.markdown(f"""
+{os.popen('vcgencmd measure_temp').readline()}
+{os.popen("df -h /").read()}
+{os.popen('free').read()}
+{os.popen('uptime').readline()}
+""")
+
 #root page
 @ui.page('/')
 def RootPage():
