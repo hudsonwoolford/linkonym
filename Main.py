@@ -20,7 +20,7 @@ TEXT_PRIMARY = 'white'
 TEXT_BLACK = 'black'
 TEXT_SECONDARY = '#777777'
 TEXT_DARK_GREY = '#555555'
-PRIMARY = '#5c0000'
+PRIMARY = '#005c2e'
 SECONDARY =  '#26a69a'
 ACCENT = '#9c27b0'
 DARK = '#1d1d1d'
@@ -72,7 +72,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
         with ui.row().style(f'height: {HEADER_HEIGHT}').classes('justify-between items-center w-full'):
             #first 30%
             with ui.row().classes('justify-start').style('width: 30%'):
-                with ui.dropdown_button().style('width: 10%').props(f'dropdown-icon={modeIcon} no-icon-animation transition-show=jump-down transition-hide=jump-up') as dropdownButton:
+                with ui.dropdown_button().props(f'dropdown-icon={modeIcon} no-icon-animation transition-show=jump-down transition-hide=jump-up') as dropdownButton:
                     with ui.item(on_click=lambda: ChangeMode('daily')) as specialItem:
                         specialItem.on_click(lambda: dropdownButton.close())
                         with ui.row().classes('justify-center items-center gap-1.5'):
@@ -83,7 +83,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
                         with ui.row().classes('justify-center items-center gap-1.5'):
                             ui.icon('sym_r_all_inclusive', color=TEXT_PRIMARY, size='125%')
                             ui.label("Seeded").style(f"color: {TEXT_PRIMARY}")
-                ui.button(icon='sym_r_undo', on_click=lambda: (RemoveLastLink(), WordChain.refresh(False))).style('width: 10%')
+                ui.button(icon='sym_r_undo', on_click=lambda: (RemoveLastLink(), WordChain.refresh(False)))
 
                 # ui.button(icon='sym_r_add_circle', on_click=lambda e: RestartBtn()).style('width: 10%')
 
@@ -97,8 +97,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
 
             #last 30%
             with ui.row().classes('justify-end').style('width: 30%'):
-                # CreateEmbedDropdown()
-                with ui.dropdown_button().style('width: 10%').props('dropdown-icon=sym_r_more_vert no-icon-animation transition-show=jump-down transition-hide=jump-up') as dropdownButton:
+                with ui.dropdown_button().props('dropdown-icon=sym_r_more_vert no-icon-animation transition-show=jump-down transition-hide=jump-up') as dropdownButton:
                     with ui.item(on_click=HintLocal) as specialHintItem:
                         specialHintItem.on_click(lambda: dropdownButton.close())
                         with ui.row().classes('justify-center items-center gap-1.5'):
@@ -117,7 +116,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
                         with ui.row().classes('justify-center items-center gap-1.5'):
                             ui.icon('sym_r_build', color=TEXT_PRIMARY, size='125%')
                             ui.label("Settings").style(f"color: {TEXT_PRIMARY}")
-                ui.button(icon='sym_r_info', on_click=lambda: dialogs['info'].open()).style('width: 10%')
+                ui.button(icon='sym_r_info', on_click=lambda: dialogs['info'].open())
     
     @ui.refreshable
     def StatsElements():
@@ -603,6 +602,7 @@ def ChangeSiteColor(color: str):
     document.documentElement.style.setProperty('--selection-color', '{color}');
     ''')
     ui.notify(f"Changed site color to {color}", timeout=500)
+    ui.navigate.reload()
 
 def ClearUserData():
     """
@@ -676,7 +676,6 @@ def GuessInput(guess: str, refreshWordChain):
             app.storage.tab['word-chain'] = wordChain
             refreshWordChain(True)
             ui.notify(message, type='positive', timeout=1500, position='bottom', badgeColor=POSITIVE, badgeTextColor=TEXT_PRIMARY)
-                
         else:
             ui.notify(message, type='warning', timeout=1500, position='bottom', badgeColor='warning', badgeTextColor=TEXT_BLACK)
     else:
