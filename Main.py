@@ -173,7 +173,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
             })
 
             avgScore = 0
-            bestScore = -1
+            bestScore = 1000
             prevDate = ""
             streak = 0
             for gs in gameScores:
@@ -190,7 +190,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
                     prevDate = gameDate
                     
                 avgScore += gs['score']
-                bestScore = max(bestScore, gs['score'])
+                bestScore = min(bestScore, gs['score'])
                 
 
             numGameScore = len(gameScores) if(len(gameScores)) != 0 else 1
@@ -243,7 +243,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
                     GameLogic.WordSim(w, terminalWords[1], 3)
                     ui.timeline_entry("",subtitle=w).style('height: 4rem').classes('p-0')
                 scrollArea.scroll_to(percent=0)
-                ui.run_javascript(f"getElement('{scrollArea.id}').setScrollPosition('vertical', 100000000, 700)")
+                ui.run_javascript(f"getElement('{scrollArea.id}').setScrollPercentage('vertical', 1, 750)")
 
         with ui.row().style('width: 100%; height: 10%').classes('justify-center'):
             ui.button(icon='sym_r_add_circle', on_click=lambda e: (ui.navigate.to(f'/practice/{_WebRandom.randint(0, 50000000)}')))
@@ -386,7 +386,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
             GuessInput(inputWordBox.value, WordChain.refresh)
             inputWordBox.value = ""
             ui.run_javascript(f"getElement('{inputWordBox.id}').focus()")
-            ui.run_javascript(f"getElement('{scrollArea.id}').setScrollPosition('vertical', 100000000, 400)")
+            ui.run_javascript(f"getElement('{scrollArea.id}').setScrollPercentage('vertical', 1, 400)")
             scrollArea.scroll_to(percent=100, axis='vertical')
 
 
@@ -611,6 +611,7 @@ def ClearUserData():
     app.storage.user['color'] = PRIMARY
     app.storage.user['game-scores'] = []
     app.storage.user['games-played'] = 0
+    ui.navigate.reload()
 
 def RemoveLastLink():
     wordChain = app.storage.tab.get('word-chain')
@@ -750,7 +751,10 @@ async def Hint(refreshWordChain):
         loop = asyncio.get_running_loop()
         hint = await loop.run_in_executor(None, GameLogic.HintWord, lastWord, terminalWords[1], wordChain, 0.15)
 
-        GuessInput(hint, refreshWordChain)
+        if(hint == 'FAILFAILFAIL'):
+            ui.notify('No possible matches! Please undo.', color='negative')
+        else:
+            GuessInput(hint, refreshWordChain)
 
     refreshWordChain(True)
 
@@ -778,12 +782,20 @@ async def GiveUp(refreshWordChain):
     loop = asyncio.get_running_loop()
     for i in range(0, 20):
         lastWord = wordChain[-1]
-        hint = await loop.run_in_executor(None, GameLogic.HintWord, lastWord, terminalWords[1], wordChain, 0.15)
+        hint = await loop.run_in_executor(None, GameLogic.HintWord, lastWord, terminalWords[1], wordChain, 0.15, 10000 if i < 10 else 70000)
+        if(hint == 'FAILFAILFAIL'):
+            ui.notify('No possible matches! Winning automatically...', color='negative')
+            wordChain.append(terminalWords[1])
+            app.storage.tab['word-chain'] = wordChain
+            refreshWordChain(True)
+            break
+
         GuessInput(hint, refreshWordChain)
-        wordChain = app.storage.tab.get('word-chain')
         refreshWordChain(True)
+        wordChain = app.storage.tab.get('word-chain')
         numHints += 1
         if(GameLogic.WordSim(hint, terminalWords[1]) < GameLogic.DISTANCE_CUTOFF):
+            await asyncio.sleep(0.5)  #wait a bit for clarity
             app.storage.tab['given-up'] = True
             app.storage.tab['num-hints'] = numHints
             GuessInput(terminalWords[1], refreshWordChain)

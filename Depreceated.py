@@ -159,3 +159,12 @@ def DataToWordList(data: dict, dataRange: range = None):
     ids = list(culledData['vocab']["_id2unit"].keys())
 
     Utility.WordsToJson(words, ids, "WordList.json", minLength=3, maxLength=10)
+
+def LemmatarizedDict(wordInfo: dict):
+    lemmaDict = {}
+    for i, w in enumerate(wordInfo.keys()):
+        lemmaWord = wordInfo[w]["lemma"]
+        if(lemmaWord in wordInfo.keys() and lemmaWord not in lemmaDict.keys()):
+            lemmaDict[lemmaWord] = wordInfo[lemmaWord]
+    
+    return lemmaDict

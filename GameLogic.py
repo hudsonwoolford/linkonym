@@ -6,6 +6,20 @@ import datetime
 import os
 import FileManager
 
+FEAT_SUFFIX_REMOVE = {
+    'Number=Plur' : [
+        ('s', ''),
+        ('es', ''),
+        ('ies', 'y')
+    ],
+    'Tense=Past' : [
+        ('d', ''),
+        ('d', 'e'),
+        ('ed', ''),
+        ('ied', 'y')
+    ]
+
+}
 DISTANCE_CUTOFF = 0.325 #max distance for word chain
 TERMINAL_RANGE = range(100, 10000)
 WORD_CATEGORY = {
@@ -17,7 +31,7 @@ WORD_CATEGORY = {
 #persistant game variables
 _nlp = None #natural language processor
 _WordData = None #global word data
-_LemmaWordInfo = None #global word info for only lemma
+_FSRWordInfo = None #global word info for only lemma
 _BannedData = None #global banned word data
 _DailyData = None #global daily data
 
@@ -30,31 +44,40 @@ def RandomKey(dic: dict, dataRange: range = None):
         dataRange = range(0, min(len(keyList), dataRange.stop), dataRange.step)
     return str(keyList[random.randrange(dataRange.start, dataRange.stop, dataRange.step)])
 
-def HintWord(w1: str, w2: str, wordChain: list, maxDistanceJump: float = 0.25) -> str:
+def HintWord(w1: str, w2: str, wordChain: list, maxDistanceJump: float = 0.25, chunkSize: int = 10000) -> str:
     t1 = _WordData['emb'][_WordData['vocab'][w1]['id']]
     t2 = _WordData['emb'][_WordData['vocab'][w2]['id']]
     
-    twentyClosest = ClosestWords(w1, 20)
+    currentChunk = 0
 
-    currentDist = TensorCosSimilarity(t1, t2)
-    bestGuess = ("word", 1000)
-    #calculate distances from all closest to the target
-    for worddist in twentyClosest:
-        #barriers from being valid
-        if(worddist[0] == w2): continue #cant be target
-        if(worddist[1] > DISTANCE_CUTOFF): continue #cant be a guess out of range
-        if(worddist[0] in wordChain): continue #cant be already guessed
+    while currentChunk < len(_WordData['vocab'].keys()):
+        currentDist = TensorCosSimilarity(t1, t2)
 
-        t = _WordData['emb'][_WordData['vocab'][worddist[0]]['id']]
-        dist = TensorCosSimilarity(t, t2)
+        twentyClosest = ClosestWords(w1, 30, rangeSelect=range(currentChunk, currentChunk+chunkSize), searchInfo=_FSRWordInfo)
+        bestGuess = ("PLACEHOLDER", 1000)
+        #calculate distances from all closest to the target
+        for worddist in twentyClosest:
+            #barriers from being valid
+            if(worddist[0] == w2): continue #cant be target
+            if(worddist[1] > DISTANCE_CUTOFF): continue #cant be a guess out of range
+            if(worddist[0] in wordChain): continue #cant be already guessed
 
-        #skip if the hint is too good
-        if(currentDist - dist > maxDistanceJump): continue
+            t = _WordData['emb'][_WordData['vocab'][worddist[0]]['id']]
+            dist = TensorCosSimilarity(t, t2)
 
-        if(bestGuess[1] > dist):
-            bestGuess = (worddist[0], dist)
+            #skip if the hint is too good
+            if(currentDist - dist > maxDistanceJump): continue
 
-    return bestGuess[0]
+            
+            if(bestGuess[1] > dist):
+                bestGuess = (worddist[0], dist)
+
+        if(currentDist - bestGuess[1] <= maxDistanceJump):
+            return bestGuess[0]
+        else:
+            currentChunk += chunkSize
+    
+    return 'FAILFAILFAIL'
 
 def TensorCosSimilarity(t1: Tensor, t2: Tensor) -> float:
     cos = CosineSimilarity(dim=0)
@@ -65,12 +88,15 @@ def WordTensor(word: str):
 
     return _WordData["emb"][_WordData["vocab"][word]["id"]]
 
-def ClosestWords(w: str, amount: int = 10) -> list:
-    if(w not in _WordData["vocab"].keys()): return None
+def ClosestWords(w: str, amount: int = 10, rangeSelect: range = None, searchInfo: dict = _WordData) -> list:
+    allWords = list(searchInfo.keys())
+    if(w not in allWords): return None
+    if(rangeSelect == None): rangeSelect = range(0, len(allWords))
+    rangeSelect = range(rangeSelect.start, min(len(allWords), rangeSelect.stop), rangeSelect.step)
 
     distances = []
-    for word in _WordData["vocab"].keys():
-        distances.append((word, WordSim(w, word, 5)))
+    for i in rangeSelect:
+        distances.append((allWords[i], WordSim(w, allWords[i], 5)))
     
     distances.sort(key=lambda x: x[1])
     return distances[:amount]
@@ -109,8 +135,7 @@ def ValidateGuess(guess: str, wordChain: list) -> tuple[bool, str, str]:
 
     guess = guess.strip().lower() #ensure no weird spaces or casing
     if(guess in possibleValues):
-        guess = RemoveFeatureSuffix(guess, "Number=Plur", "s") #make plur sing
-        guess = RemoveFeatureSuffix(guess, "Tense=Past", ["ed","d"]) #make past present
+        guess = FeatSuffixRemove(guess) #make plur sing and past present
         if(guess in wordChain):
             return False, f"'{guess}' is already in chain!", guess
     else:
@@ -122,44 +147,46 @@ def ValidateGuess(guess: str, wordChain: list) -> tuple[bool, str, str]:
         
     return True, f"Guessed '{guess}.'", guess
 
-def RemoveFeatureSuffix(word: str, feat: str, suffixes: list):
-    if(isinstance(suffixes, str)):
-        suffixes = [suffixes]
+def FeatSuffixRemove(word: str):
 
-    if(feat in str(_WordData["vocab"][word]["feats"])):
-        noSWord = word
-        for suf in suffixes:
-            if(word[-len(suf):]==suf):
-                noSWord = word.removesuffix(suf)
+    for f in FEAT_SUFFIX_REMOVE.keys():
+        if(f not in str(_WordData["vocab"][word]["feats"])):
+            continue
 
-        if(noSWord in _WordData["vocab"].keys()):
-            word = noSWord
-    
+        for sufReplace in FEAT_SUFFIX_REMOVE[f]:
+            if(word[-len(sufReplace[0]):] == sufReplace[0]):
+                newW = word
+                newW = newW.removesuffix(sufReplace[0])
+                newW += sufReplace[1]
+                if(newW in _WordData['vocab'].keys()):
+                    return newW
+
     return word
 
-def LemmatarizedDict(wordInfo: dict):
-    lemmaDict = {}
+def FSRDict():
+    fsrDict = {}
+    wordInfo = _WordData['vocab']
     for i, w in enumerate(wordInfo.keys()):
-        lemmaWord = wordInfo[w]["lemma"]
-        if(lemmaWord in wordInfo.keys() and lemmaWord not in lemmaDict.keys()):
-            lemmaDict[lemmaWord] = wordInfo[lemmaWord]
+        fsr = FeatSuffixRemove(w)
+        if(fsr in wordInfo.keys() and fsr not in fsrDict.keys()):
+            fsrDict[fsr] = wordInfo[fsr]
     
-    return lemmaDict
+    return fsrDict
 
 def GenerateStartEndWords(minDistance: float = 0.325) -> tuple[str, str]:
     """
     Generates start and end words for game randomly, optional minDistance parameter
     """
 
-    end = RandomKey(_LemmaWordInfo, TERMINAL_RANGE)
-    while _LemmaWordInfo[end]["pos"] in WORD_CATEGORY["halfBanned"]:
-        end = RandomKey(_LemmaWordInfo, TERMINAL_RANGE)
+    end = RandomKey(_FSRWordInfo, TERMINAL_RANGE)
+    while _FSRWordInfo[end]["pos"] in WORD_CATEGORY["halfBanned"]:
+        end = RandomKey(_FSRWordInfo, TERMINAL_RANGE)
 
 
     K = 0
-    start = RandomKey(_LemmaWordInfo, TERMINAL_RANGE)
-    while  _LemmaWordInfo[start]["pos"] in WORD_CATEGORY["halfBanned"] or WordSim(start, end) < minDistance:
-        start = RandomKey(_LemmaWordInfo, TERMINAL_RANGE)
+    start = RandomKey(_FSRWordInfo, TERMINAL_RANGE)
+    while  _FSRWordInfo[start]["pos"] in WORD_CATEGORY["halfBanned"] or WordSim(start, end) < minDistance:
+        start = RandomKey(_FSRWordInfo, TERMINAL_RANGE)
         K+=1
         if(K > 10000):
             print("Warning: Taking too long to determine start and end words, maybe lower minDistance or raise terminal range?")
@@ -169,12 +196,12 @@ def GenerateStartEndWords(minDistance: float = 0.325) -> tuple[str, str]:
 
 
 def LoadWordData(wordPath: str, bannedPath: str, dailyPath: str):
-    global _WordData, _BannedData, _DailyData, _LemmaWordInfo
+    global _WordData, _BannedData, _DailyData, _FSRWordInfo
 
     _WordData = torchLoad(wordPath)
     _BannedData = torchLoad(bannedPath)
     _DailyData = FileManager.LoadJsonDict(dailyPath)
-    _LemmaWordInfo = LemmatarizedDict(_WordData['vocab'])
+    _FSRWordInfo = FSRDict()
 
     # _WordData["vocab"] = StanzaUtility.LemmatarizedDict(_WordData["vocab"]) #get lemma only
 

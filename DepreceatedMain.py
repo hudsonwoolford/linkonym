@@ -217,6 +217,7 @@ async def DailyPage(_Seed):
             WordChain.refresh(True)
             numHints += 1
             if(GameLogic.WordSim(hint, terminalWords[1]) < GameLogic.DISTANCE_CUTOFF):
+                await asyncio.sleep(0.25)  #wait a bit for clarity
                 GuessInput(terminalWords[1])
                 numHints += 1
                 WordChain.refresh(True)

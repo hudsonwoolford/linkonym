@@ -230,8 +230,8 @@ def CreateEdgeCSV(edgePath: str, wordData: dict, similarityCutoff: float = 0.675
 
     print("Appending...")
     for coords in simMatrix:
-        edgeDict['source'].append(allWords[coords[0]])
-        edgeDict['target'].append(allWords[coords[1]])
+        edgeDict['source'].append(wordData['vocab'][allWords[coords[0]]]['id'])
+        edgeDict['target'].append(wordData['vocab'][allWords[coords[1]]]['id'])
 
     print("Saving...")
     edgeDf = pd.DataFrame(edgeDict)
@@ -272,8 +272,9 @@ def CreateNodesCSV(nodePath: str, wordData: dict):
     
     nodeDf.to_csv(nodePath, index=False)
 
-# CreateEdgeCSV('output/WordEdges.csv', GameLogic._WordData)
-ConvertCSVToID('output/WordEdges.csv', 'output/WordEdgesID.csv', GameLogic._WordData)
+CreateEdgeCSV('output/WordEdges.csv', GameLogic._WordData)
+# ConvertCSVToID('output/WordEdges.csv', 'output/WordEdgesID.csv', GameLogic._WordData)
+# print(len(GameLogic.LemmatarizedDict(GameLogic._WordData['vocab']))) #45379
 # processors = "tokenize, mwt, pos, lemma" #processors required for lemmatarization and noun identification
 # prenlp = stanza.Pipeline(lang='en', processors=processors, device='cuda', download_method=None)
 # del processors
