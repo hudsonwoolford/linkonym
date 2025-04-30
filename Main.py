@@ -82,7 +82,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
         with ui.row().style(f'height: {HEADER_HEIGHT}').classes('justify-between items-center w-full'):
             #first 30%
             with ui.row().classes('justify-start').style('width: 30%'):
-                with ui.dropdown_button().props(f'dropdown-icon={modeIcon} no-icon-animation transition-show=jump-down transition-hide=jump-up') as dropdownButton:
+                with ui.dropdown_button().props(f'dropdown-icon={modeIcon} no-icon-animation transition-show=jump-down transition-hide=jump-up').style('width: 3rem') as dropdownButton:
                     with ui.item(on_click=lambda: ChangeMode('daily')) as specialItem:
                         specialItem.on_click(lambda: dropdownButton.close())
                         with ui.row().classes('justify-center items-center gap-1.5'):
@@ -93,12 +93,12 @@ async def GamePage(seed: str, mode: str = 'daily'):
                         with ui.row().classes('justify-center items-center gap-1.5'):
                             ui.icon('sym_r_all_inclusive', color=TEXT_PRIMARY, size='125%')
                             ui.label("Seeded").style(f"color: {TEXT_PRIMARY}")
-                ui.button(icon='sym_r_undo', on_click=lambda: (RemoveLastLink(), WordChain.refresh(False)))
+                ui.button(icon='sym_r_undo', on_click=lambda: (RemoveLastLink(), WordChain.refresh(False))).style('width: 3rem')
 
                 # ui.button(icon='sym_r_add_circle', on_click=lambda e: RestartBtn()).style('width: 10%')
 
             #game name
-            ui.label(f'{GAME_NAME}').style(f'color: {TEXT_PRIMARY}; font-size: 200%; font-weight: bold').classes('absolute-center')
+            ui.label(f'{GAME_NAME}').style(f'color: {TEXT_PRIMARY}; font-family: "Righteous"; font-size: 250%;').classes('absolute-center')
 
             async def HintLocal():
                 await Hint(WordChain.refresh)
@@ -107,7 +107,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
 
             #last 30%
             with ui.row().classes('justify-end').style('width: 30%'):
-                with ui.dropdown_button().props('dropdown-icon=sym_r_more_vert no-icon-animation transition-show=jump-down transition-hide=jump-up') as dropdownButton:
+                with ui.dropdown_button().props('dropdown-icon=sym_r_more_vert no-icon-animation transition-show=jump-down transition-hide=jump-up').style('width: 3rem') as dropdownButton:
                     with ui.item(on_click=HintLocal) as specialHintItem:
                         specialHintItem.on_click(lambda: dropdownButton.close())
                         with ui.row().classes('justify-center items-center gap-1.5'):
@@ -126,7 +126,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
                         with ui.row().classes('justify-center items-center gap-1.5'):
                             ui.icon('sym_r_build', color=TEXT_PRIMARY, size='125%')
                             ui.label("Settings").style(f"color: {TEXT_PRIMARY}")
-                ui.button(icon='sym_r_info', on_click=lambda: dialogs['info'].open())
+                ui.button(icon='sym_r_info', on_click=lambda: dialogs['info'].open()).style('width: 3rem')
     
     @ui.refreshable
     def StatsElements():
@@ -290,7 +290,8 @@ async def GamePage(seed: str, mode: str = 'daily'):
         #create a card for each word
         with ui.column().classes("w-full gap-2"):
             for i, word in enumerate(wordChain):
-                chainMessage = f"({GameLogic.WordSim(word, terminalWords[1], 3)}) to '{terminalWords[1]}'"
+                dist = GameLogic.WordSim(word, terminalWords[1], 3)
+                chainMessage =  f"({dist}) to '{terminalWords[1]}'" if dist > 0 else f"Equal to '{terminalWords[1]}'"
                 # if(not i == len(GameLogic._WordChain)-1):
                 #     chainMessage = f"({GameLogic.WordSim(word, GameLogic._WordChain[i+1], 3)})"
                 appendStyle = "" if i != len(wordChain) - 1 or not fadeIn  else "; animation: fade 0.3s"
@@ -386,21 +387,24 @@ async def GamePage(seed: str, mode: str = 'daily'):
         with ui.scroll_area().style(f"height: 40%; border-color: {BORDER_COLOR}; border-width: 1px; border-radius: {BORDER_RADIUS}; scroll-behaviour: smooth").classes(f'rounded w-full') as sa:
 
             scrollArea = sa
-            WordChain(scrollArea)
+            WordChain(False)
 
         with ui.element().style('height: 30%').classes('justify-start w-full'):
             DictionaryText()
 
         #wrapper function for what happens when the user enters a word
-        def OnEnterWord():
-            GuessInput(inputWordBox.value, WordChain.refresh)
-            inputWordBox.value = ""
-            ui.run_javascript(f"getElement('{inputWordBox.id}').focus()")
+        def OnEnterWord(wordBox: ui.input):
+            GuessInput(wordBox.value, WordChain.refresh)
+            if(app.storage.tab.get('won')):
+                wordBox.props('disable')
+                app.storage.tab['seed'] = None #THIS IS TEMPORARY TO MAKE IT SO THAT RELOADING ON A WIN RESETS 
+            wordBox.value = ""
+            ui.run_javascript(f"getElement('{wordBox.id}').focus()")
             ui.run_javascript(f"getElement('{scrollArea.id}').setScrollPercentage('vertical', 1, 400)")
             scrollArea.scroll_to(percent=100, axis='vertical')
 
 
-        inputWordBox.on('keydown', lambda e: OnEnterWord() if e.args['key'] == "Enter" else None) #call wrapper if key is enter
+        inputWordBox.on('keydown', lambda e: OnEnterWord(inputWordBox) if e.args['key'] == "Enter" else None) #call wrapper if key is enter
 
     
             
@@ -498,6 +502,18 @@ def HeaderHTML():
     </style>
     """)
 
+    #Custom font
+    ui.add_head_html("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Righteous&display=swap');
+    .righteous-regular {
+        font-family: "Righteous", sans-serif;
+        font-weight: 400;
+        font-style: normal;
+    }
+    """)
+
+
 def OverlayCard() -> ui.card:
     """
     Creates an overlay card with global settings, useful for dialogs like win, stats, settings etc
@@ -526,7 +542,7 @@ def CreateDialogs(statElementsF, winElementsF) -> dict:
         statRadio = ui.radio([' ', ''], value=' ', on_change= lambda e: dialogs['stats-win'].close()).props('inline size=xs')
 
     #winning dialogue setup
-    dialogs['win'] = ui.dialog().props('persistent')
+    dialogs['win'] = ui.dialog()
     with dialogs['win'] as dialog, OverlayCard():
         winElementsF()
         ui.radio([' ', ''], value=' ', on_change= lambda e: dialogs['stats-win'].open()).props('inline size=xs').bind_value(statRadio, 'value')
@@ -582,13 +598,15 @@ def InitializeStorage(seed: str, startWord: str, targetWord: str):
     if(app.storage.user.get('games-played') == None):
         app.storage.user['games-played'] = 0
 
-    #temp tab storage
-    app.storage.tab['seed'] = seed
-    app.storage.tab['terminal-words'] = [startWord, targetWord] #store start and end words for optimisation
-    app.storage.tab['word-chain'] = [startWord] #store a chain of words in the tab
-    app.storage.tab['num-hints'] = 0 #store a number tracking hints in the tab
-    app.storage.tab['given-up'] = False #store a boolean for given up in the tab
-    app.storage.tab['mode'] = 'daily' #store a string for the users mode
+    #temp tab storage - if needs to be renewed
+    if(app.storage.tab.get('seed') != seed):
+        app.storage.tab['seed'] = seed
+        app.storage.tab['terminal-words'] = [startWord, targetWord] #store start and end words for optimisation
+        app.storage.tab['word-chain'] = [startWord] #store a chain of words in the tab
+        app.storage.tab['num-hints'] = 0 #store a number tracking hints in the tab
+        app.storage.tab['given-up'] = False #store a boolean for given up in the tab
+        app.storage.tab['mode'] = 'daily' #store a string for the users mode
+        app.storage.tab['won'] = False
 
     #temp client storage
     app.storage.client['toggle-btns'] = []
@@ -618,12 +636,14 @@ def ClearUserData():
     """
     Resets all storage for the user, equivalent to clearing.
     """
-    app.storage.user['color'] = PRIMARY
-    app.storage.user['game-scores'] = []
-    app.storage.user['games-played'] = 0
+    app.storage.user['color'] = None
+    app.storage.user['game-scores'] = None
+    app.storage.user['games-played'] = None
     ui.navigate.reload()
 
 def RemoveLastLink():
+    if(app.storage.tab.get('won')): return #cant modify if already won
+
     wordChain = app.storage.tab.get('word-chain')
     wordChain = wordChain[:-1] if len(wordChain) > 1 else wordChain
     app.storage.tab['word-chain'] = wordChain
@@ -676,7 +696,6 @@ def GuessInput(guess: str, refreshWordChain):
     """
 
     wordChain = app.storage.tab.get('word-chain')
-    terminalWords = app.storage.tab.get('terminal-words')
 
     valid, message, guess = GameLogic.ValidateGuess(guess, wordChain) #if guess is valid/(if it is in possible values and not banned)
     if(valid):
@@ -718,6 +737,8 @@ def WinGame(refreshStats, refreshWin):
     #show dialog
     refreshWin()
     dialogs['win'].open()
+    app.storage.tab['won'] = True
+
 
 def RegisterTglBtn(btn: ToggleButton):
     btns = app.storage.client.get('toggle-btns')
@@ -741,6 +762,7 @@ async def Hint(refreshWordChain):
     """
     Queries gamelogic to determine and guess a hint
     """
+    if(app.storage.tab.get('won')): return #cant give hint if already won
 
     wordChain = app.storage.tab.get('word-chain')
     numHints = app.storage.tab.get('num-hints')
@@ -777,6 +799,7 @@ async def GiveUp(refreshWordChain):
     """
     The equivalent of looping hint until solved
     """
+    if(app.storage.tab.get('won')): return #cant give hint if already won
 
     wordChain = app.storage.tab.get('word-chain')
     numHints = app.storage.tab.get('num-hints')

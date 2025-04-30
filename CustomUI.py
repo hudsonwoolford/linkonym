@@ -23,9 +23,9 @@ class ToggleButton(ui.button):
         self.label = label
         self.col1 = col1
         self.col2 = col2
-        self.onEnable = on_enable
         self.classes('c-toggle__btn')
-        self.enable(False)
+        self.onEnable = on_enable
+        self.update()
     
         with self.style(f"height: 3rem; box-shadow: none !important; text-transform: none;").props('unelevated'):
             if(label != None):
