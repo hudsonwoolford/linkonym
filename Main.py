@@ -10,27 +10,46 @@ import datetime
 import os
 
 #region PARAMETERS
-#constant UI colours and parameters
-GAME_NAME = "Linkonym"
-BORDER_COLOR = '#AAAAAA'
-BORDER_WIDTH = '0px'
-BORDER_RADIUS = '10px'
-BORDER_SETTINGS = f'border-color: {BORDER_COLOR}; border-width: {BORDER_WIDTH}; border-radius: {BORDER_RADIUS}'
-TEXT_PRIMARY = 'white'
-TEXT_BLACK = 'black'
-TEXT_SECONDARY = '#777777'
-TEXT_DARK_GREY = '#555555'
+#Colors
+
+#light mode (L_[color-description])
+L_BACKGROUND = '#f7f4ea' #floral white
+L_ELEMENT = '#e7e4da' #floral white
+L_TEXT = 'black'
+L_TEXT_SECONDARY = 'grey'
+L_BORDER = 'black'
+L_SCHEMES = [
+    '#191919', '#333333',
+    '#ffccff','#e6ccff', '#cce6ff', '#ccffff', '#ccffcc', '#ffffcc', '#ffe6cc', '#ffcccc',
+]
+
+#dark mode (D_[color-description])
+D_BACKGROUND = '#121212' #floral white
+D_ELEMENT = '#1d1d1d' #ivory
+D_TEXT = 'white'
+D_TEXT_SECONDARY = 'grey'
+D_BORDER = 'white'
+D_SCHEMES = [
+    '#191919', '#333333',
+    '#5c005c', '#2e005c', '#002e5c', '#005c5c', '#005c00', '#5c5c00', '#5c2e00', '#5c0000',
+]
+
+#constant colors
 PRIMARY = '#005c2e'
-SECONDARY =  '#26a69a'
-ACCENT = '#9c27b0'
-DARK = '#1d1d1d'
-DARK_PAGE = '#121212'
 POSITIVE = '#21ba45'
 NEGATIVE = '#c10015'
 INFO = '#31ccec'
 WARNING = '#f2c037'
+
+#width and radius
+BORDER_WIDTH = '0px'
+BORDER_RADIUS = '10px'
 GAME_WIDTH= '24rem'
 HEADER_HEIGHT = '4rem'
+
+#other
+GAME_NAME = "Linkonym"
+BORDER_SETTINGS = f'border-color: {D_BORDER}; border-width: {BORDER_WIDTH}; border-radius: {BORDER_RADIUS}'
 NUM_DEFINITIONS = 2
 MAX_TRACK_GAMES = 50
 PORT = 8000
@@ -82,23 +101,23 @@ async def GamePage(seed: str, mode: str = 'daily'):
         with ui.row().style(f'height: {HEADER_HEIGHT}').classes('justify-between items-center w-full'):
             #first 30%
             with ui.row().classes('justify-start').style('width: 30%'):
-                with ui.dropdown_button().props(f'dropdown-icon={modeIcon} no-icon-animation transition-show=jump-down transition-hide=jump-up').style('width: 3rem') as dropdownButton:
-                    with ui.item(on_click=lambda: ChangeMode('daily')) as specialItem:
+                with ui.dropdown_button().props(f'dropdown-icon={modeIcon} no-icon-animation transition-show=jump-down transition-hide=jump-up').style('width: 3rem; color: var(--q-text) !important;') as dropdownButton:
+                    with ui.item(on_click=lambda: ChangeMode('daily')).style('background-color: var(--q-element)') as specialItem:
                         specialItem.on_click(lambda: dropdownButton.close())
                         with ui.row().classes('justify-center items-center gap-1.5'):
-                            ui.icon('sym_r_today', color=TEXT_PRIMARY, size='125%')
-                            ui.label("Daily").style(f"color: {TEXT_PRIMARY}")
-                    with ui.item(on_click= lambda: ChangeMode('practice')) as specialItem:
+                            ui.icon('sym_r_today', color='text', size='125%')
+                            ui.label("Daily").style(f"color: var(--q-text)")
+                    with ui.item(on_click= lambda: ChangeMode('practice')).style('background-color: var(--q-element)') as specialItem:
                         specialItem.on_click(lambda: dropdownButton.close())
                         with ui.row().classes('justify-center items-center gap-1.5'):
-                            ui.icon('sym_r_all_inclusive', color=TEXT_PRIMARY, size='125%')
-                            ui.label("Seeded").style(f"color: {TEXT_PRIMARY}")
-                ui.button(icon='sym_r_undo', on_click=lambda: (RemoveLastLink(), WordChain.refresh(False))).style('width: 3rem')
+                            ui.icon('sym_r_all_inclusive', color='text', size='125%')
+                            ui.label("Seeded").style(f"color: var(--q-text)")
+                ui.button(icon='sym_r_undo', on_click=lambda: (RemoveLastLink(), WordChain.refresh(False))).style('width: 3rem; color: var(--q-text) !important;')
 
                 # ui.button(icon='sym_r_add_circle', on_click=lambda e: RestartBtn()).style('width: 10%')
 
             #game name
-            ui.label(f'{GAME_NAME}').style(f'color: {TEXT_PRIMARY}; font-family: "Righteous"; font-size: 250%;').classes('absolute-center')
+            ui.label(f'{GAME_NAME}').style(f'color: var(--q-text); font-family: "Righteous"; font-size: 250%;').classes('absolute-center')
 
             async def HintLocal():
                 await Hint(WordChain.refresh)
@@ -107,26 +126,26 @@ async def GamePage(seed: str, mode: str = 'daily'):
 
             #last 30%
             with ui.row().classes('justify-end').style('width: 30%'):
-                with ui.dropdown_button().props('dropdown-icon=sym_r_more_vert no-icon-animation transition-show=jump-down transition-hide=jump-up').style('width: 3rem') as dropdownButton:
-                    with ui.item(on_click=HintLocal) as specialHintItem:
+                with ui.dropdown_button().props('dropdown-icon=sym_r_more_vert no-icon-animation transition-show=jump-down transition-hide=jump-up text-color=var(--q-text)').style('width: 3rem; color: var(--q-text) !important;') as dropdownButton:
+                    with ui.item(on_click=HintLocal).style('background-color: var(--q-element)') as specialHintItem:
                         specialHintItem.on_click(lambda: dropdownButton.close())
                         with ui.row().classes('justify-center items-center gap-1.5'):
-                            ui.icon('sym_r_lightbulb', color=TEXT_PRIMARY, size='125%')
-                            ui.label("Hint").style(f"color: {TEXT_PRIMARY}")
-                    with ui.item(on_click=GiveUpLocal) as specialGiveUpItem:
+                            ui.icon('sym_r_lightbulb', color='text', size='125%')
+                            ui.label("Hint").style(f"color: var(--q-text)")
+                    with ui.item(on_click=GiveUpLocal).style('background-color: var(--q-element)') as specialGiveUpItem:
                         specialGiveUpItem.on_click(lambda: dropdownButton.close())
                         with ui.row().classes('justify-center items-center gap-1.5'):
-                            ui.icon('sym_r_flag', color=TEXT_PRIMARY, size='125%')
-                            ui.label("Give up").style(f"color: {TEXT_PRIMARY}")
-                    with ui.item(on_click=lambda: (dialogs['stats'].open(), dropdownButton.close())):
+                            ui.icon('sym_r_flag', color='text', size='125%')
+                            ui.label("Give up").style(f"color: var(--q-text)")
+                    with ui.item(on_click=lambda: (dialogs['stats'].open(), dropdownButton.close())).style('background-color: var(--q-element)'):
                         with ui.row().classes('justify-center items-center gap-1.5'):
-                            ui.icon('sym_r_bar_chart', color=TEXT_PRIMARY, size='125%')
-                            ui.label("Stats").style(f"color: {TEXT_PRIMARY}")
-                    with ui.item(on_click=lambda: (dialogs['settings'].open(), dropdownButton.close())):
+                            ui.icon('sym_r_bar_chart', color='color', size='125%')
+                            ui.label("Stats").style(f"color: var(--q-text)")
+                    with ui.item(on_click=lambda: (dialogs['settings'].open(), dropdownButton.close())).style('background-color: var(--q-element)'):
                         with ui.row().classes('justify-center items-center gap-1.5'):
-                            ui.icon('sym_r_build', color=TEXT_PRIMARY, size='125%')
-                            ui.label("Settings").style(f"color: {TEXT_PRIMARY}")
-                ui.button(icon='sym_r_info', on_click=lambda: dialogs['info'].open()).style('width: 3rem')
+                            ui.icon('sym_r_build', color='color', size='125%')
+                            ui.label("Settings").style(f"color: var(--q-text)")
+                ui.button(icon='sym_r_info', on_click=lambda: dialogs['info'].open()).style('width: 3rem; color: var(--q-text) !important;')
     
     @ui.refreshable
     def StatsElements():
@@ -137,8 +156,8 @@ async def GamePage(seed: str, mode: str = 'daily'):
         gameScores: list = app.storage.user.get('game-scores')
         gamesPlayed: int = app.storage.user.get('games-played')
         with ui.row().classes('justify-center items-center gap-1.5'):
-                ui.icon('sym_r_bar_chart', size="150%", color=TEXT_PRIMARY)
-                ui.label("Stats").style(f"color: {TEXT_PRIMARY}; font-weight: bold; font-size: 150%")
+                ui.icon('sym_r_bar_chart', size="150%", color='text')
+                ui.label("Stats").style(f"color: var(--q-text); font-weight: bold; font-size: 150%")
 
         if(len(gameScores) > 0):
             ui.echart({
@@ -149,7 +168,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
                 'left': 'center', 
                 'top': 'top', 
                 'textStyle': {
-                    'color': TEXT_PRIMARY,
+                    'color': 'var(--q-text)',
                     'fontSize': 16
                 },
             },
@@ -167,7 +186,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
             'yAxis' : {'type' : 'value', 'splitLine' : {
                 'lineStyle': {
                     'type' : 'dashed',
-                    'color': TEXT_SECONDARY
+                    'color': 'var(--q-text-secondary)'
                 }
             }, ''
             'interval': 2},
@@ -208,19 +227,19 @@ async def GamePage(seed: str, mode: str = 'daily'):
 
             with ui.row().classes('w-full justify-between items-center'):
                 ui.markdown(f'Average chain length')
-                ui.label(avgScore).style(f'color: {TEXT_SECONDARY}')
+                ui.label(avgScore).style(f'color: var(--q-text-secondary)')
 
             with ui.row().classes('w-full justify-between items-center'):
                 ui.markdown(f'Shortest chain length')
-                ui.label(bestScore).style(f'color: {TEXT_SECONDARY}')
+                ui.label(bestScore).style(f'color: var(--q-text-secondary)')
 
             with ui.row().classes('w-full justify-between items-center'):
                 ui.markdown(f'Daily streak')   
-                ui.label(streak).style(f'color: {TEXT_SECONDARY}')
+                ui.label(streak).style(f'color: var(--q-text-secondary)')
             
             with ui.row().classes('w-full justify-between items-center'):
                 ui.markdown(f'Games played')   
-                ui.label(gamesPlayed).style(f'color: {TEXT_SECONDARY}')
+                ui.label(gamesPlayed).style(f'color: var(--q-text-secondary)')
             
         else:
             ui.markdown('**No data yet!**').classes('absolute-center')
@@ -239,15 +258,15 @@ async def GamePage(seed: str, mode: str = 'daily'):
         #store parameters
         #set all parameters
         with ui.row().classes('justify-center items-center gap-1.5'):
-            ui.icon('sym_r_emoji_events' if not givenUp else 'sym_r_flag', size="150%", color=TEXT_PRIMARY)
-            ui.label("You won!" if not givenUp else "Gave up!").style(f"color: {TEXT_PRIMARY}; font-weight: bold; font-size: 150%")
+            ui.icon('sym_r_emoji_events' if not givenUp else 'sym_r_flag', size="150%", color='text')
+            ui.label("You won!" if not givenUp else "Gave up!").style(f"color: var(--q-text); font-weight: bold; font-size: 150%")
 
         with ui.row().classes('justify-center items-center gap-1.5'):
             ui.chip(f"{len(wordChain)-1} links", icon='sym_r_link')
 
             ui.chip(f"{numHints} hint" + ('s' if numHints != 1 else ''), icon='sym_r_lightbulb')
 
-        with ui.scroll_area().style(f'border-color: {BORDER_COLOR}; border-radius: {BORDER_RADIUS}; border-width: 1px; width: 90%').classes('h-full') as scrollArea:
+        with ui.scroll_area().style(f'border-color: var(--q-border); border-radius: {BORDER_RADIUS}; border-width: 1px; width: 90%').classes('h-full') as scrollArea:
             with ui.timeline(side='right', layout='dense').classes('gap-0 p-0 h-full'):
                 for i, w in enumerate(wordChain):
                     GameLogic.WordSim(w, terminalWords[1], 3)
@@ -256,8 +275,8 @@ async def GamePage(seed: str, mode: str = 'daily'):
                 ui.run_javascript(f"getElement('{scrollArea.id}').setScrollPercentage('vertical', 1, 750)")
 
         with ui.row().style('width: 100%; height: 10%').classes('justify-center'):
-            ui.button(icon='sym_r_add_circle', on_click=lambda e: (ui.navigate.to(f'/practice/{_WebRandom.randint(0, 50000000)}')))
-            ui.button(icon='sym_r_ios_share', on_click=lambda e: CopyClipboardGame())
+            ui.button(icon='sym_r_add_circle', on_click=lambda e: (ui.navigate.to(f'/practice/{_WebRandom.randint(0, 50000000)}'))).style('color: var(--q-text) !important;')
+            ui.button(icon='sym_r_ios_share', on_click=lambda e: CopyClipboardGame()).style('color: var(--q-text) !important;')
     
     @ui.refreshable 
     def TerminalCards():
@@ -270,9 +289,9 @@ async def GamePage(seed: str, mode: str = 'daily'):
 
         #create cards for start and target
         with ui.row().classes('gap-0 items-center justify-between w-full'):
-            start = ToggleButton(linkedId=terminalWords[0], label=terminalWords[0], col1=DARK, col2=color, on_enable=lambda e: DictionaryText.refresh()).style(BORDER_SETTINGS+"; width: 40%")
-            ui.icon("sym_r_keyboard_double_arrow_right", size="2rem", color=BORDER_COLOR)
-            end = ToggleButton(linkedId=terminalWords[1], label=terminalWords[1], col1=DARK, col2=color, on_enable=lambda e: DictionaryText.refresh()).style(BORDER_SETTINGS+"; width: 40%")
+            start = ToggleButton(linkedId=terminalWords[0], label=terminalWords[0], col1='element', col2='primary', on_enable=lambda e: DictionaryText.refresh()).style(BORDER_SETTINGS+"; width: 40%")
+            ui.icon("sym_r_keyboard_double_arrow_right", size="2rem", color='element')
+            end = ToggleButton(linkedId=terminalWords[1], label=terminalWords[1], col1='element', col2='primary', on_enable=lambda e: DictionaryText.refresh()).style(BORDER_SETTINGS+"; width: 40%")
             RegisterTglBtn(start)
             RegisterTglBtn(end)
     
@@ -285,7 +304,6 @@ async def GamePage(seed: str, mode: str = 'daily'):
         
         terminalWords = app.storage.tab.get('terminal-words')
         wordChain = app.storage.tab.get('word-chain')
-        color = app.storage.user.get('site-color')
 
         #create a card for each word
         with ui.column().classes("w-full gap-2"):
@@ -296,13 +314,13 @@ async def GamePage(seed: str, mode: str = 'daily'):
                 #     chainMessage = f"({GameLogic.WordSim(word, GameLogic._WordChain[i+1], 3)})"
                 appendStyle = "" if i != len(wordChain) - 1 or not fadeIn  else "; animation: fade 0.3s"
                 
-                tglBtn = ToggleButton(linkedId=word, col1=DARK, col2=color, on_enable=lambda e: DictionaryText.refresh()).style(f"width: 100%; {BORDER_SETTINGS}" + appendStyle).classes(f'custom-button-content')
+                tglBtn = ToggleButton(linkedId=word, col1='element', col2='primary', on_enable=lambda e: DictionaryText.refresh()).style(f"width: 100%; {BORDER_SETTINGS}" + appendStyle).classes(f'custom-button-content')
                 RegisterTglBtn(tglBtn)
                 with tglBtn:
                     with ui.row().style('width: 100%').classes('gap-4 h-full items-center justify-start text-left'):
-                        ui.label(f'{i+1}').style(f'color: {TEXT_SECONDARY}')
-                        ui.label(word).style(f'font-weight: normal; color: {TEXT_PRIMARY}')
-                        ui.label(f'{chainMessage}').style(f'color: {TEXT_SECONDARY}').classes('ml-auto')
+                        ui.label(f'{i+1}').style(f'color: var(--q-text-secondary)')
+                        ui.label(word).style(f'font-weight: normal; color: var(--q-text)')
+                        ui.label(f'{chainMessage}').style(f'color: var(--q-text-secondary)').classes('ml-auto')
                 
                 if(word == terminalWords[1]):
                     WinGame(StatsElements.refresh, WinElements.refresh)
@@ -314,7 +332,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
     def DictionaryText():
         word = app.storage.client.get('selected-word')
         if(word != None and word != ''):
-            ui.separator().style(f'background-color: {BORDER_COLOR}; animation: fade 0.5s')            
+            ui.separator().style(f'background-color: var(--q-border); animation: fade 0.5s')            
             ui.element('div').classes('my-2')
 
             #retrieve definition
@@ -332,20 +350,20 @@ async def GamePage(seed: str, mode: str = 'daily'):
                 }
             
             #dictionary entry
-            ui.label(word).style(f'font-size: 250%; font-weight: bold; color: {TEXT_PRIMARY}; text-align: left; animation: fade 1s')
+            ui.label(word).style(f'font-size: 250%; font-weight: bold; color: var(--q-text); text-align: left; animation: fade 1s')
             total = min(NUM_DEFINITIONS, sum(1 for key in definitions if key.startswith("definition_")))
             for i in range(1, total+1):
                 ui.element('div').classes('my-2')
-                ui.label(f"{i}. {definitions[f'pos_{i}']}").style(f'color: {TEXT_PRIMARY}; text-align: left; animation: fade 1s').classes('text-italic')
+                ui.label(f"{i}. {definitions[f'pos_{i}']}").style(f'color:  var(--q-text); text-align: left; animation: fade 1s').classes('text-italic')
                 ui.element('div').classes('my-2')
 
                 if(not definitionNotFound):
-                    ui.label(definitions[f'definition_{i}']).style(f' color: {TEXT_PRIMARY}; text-align: left; animation: fade 1s')
+                    ui.label(definitions[f'definition_{i}']).style(f' color:  var(--q-text); text-align: left; animation: fade 1s')
                 else:
-                    ui.link(text = f"Please visit https://www.google.com/search?q=define%20{word} for the meaning", target=f'https://www.google.com/search?q=define%20{word}', new_tab=True).style(f' color: {TEXT_PRIMARY}; text-align: left; animation: fade 1s')
+                    ui.link(text = f"Please visit https://www.google.com/search?q=define%20{word} for the meaning", target=f'https://www.google.com/search?q=define%20{word}', new_tab=True).style(f' color: var(--q-text); text-align: left; animation: fade 1s')
             
             ui.element('div').classes('my-4')
-            ui.separator().style(f'background-color: {BORDER_COLOR}; animation: fade 0.5s')
+            ui.separator().style(f'background-color:  var(--q-border); animation: fade 0.5s')
     #endregion
 
     #region INITIALIZATION
@@ -365,7 +383,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
     #region ELEMENTS
     
     #header
-    with ui.header().style(f'background-color: {DARK}').style(f'font-size: 24; height: {HEADER_HEIGHT}').classes('py-0 w-screen font-weight-bold'):
+    with ui.header().style(f'background-color: var(--q-element)').style(f'font-size: 24; height: {HEADER_HEIGHT}').classes('py-0 w-screen font-weight-bold'):
         HeaderRow(dialogs)
 
     #main game column
@@ -379,12 +397,12 @@ async def GamePage(seed: str, mode: str = 'daily'):
         TerminalCards()
         
         inputWordBox = ui.input(placeholder="chain a word..."
-                            ).props(f'autocomplete=off; autocapitalize=off; input-style="color: {BORDER_COLOR}"; autofocus'
+                            ).props(f'autocomplete=off; autocapitalize=off; input-style="color: var(--q-border)"; autofocus'
                             ).classes(f' gap-0 items-center w-full')
 
         #word chain scroll area
         scrollArea = None
-        with ui.scroll_area().style(f"height: 40%; border-color: {BORDER_COLOR}; border-width: 1px; border-radius: {BORDER_RADIUS}; scroll-behaviour: smooth").classes(f'rounded w-full') as sa:
+        with ui.scroll_area().style(f"height: 40%; border-color: var(--q-border); border-width: 1px; border-radius: {BORDER_RADIUS}; scroll-behaviour: smooth").classes(f'rounded w-full') as sa:
 
             scrollArea = sa
             WordChain(False)
@@ -420,10 +438,36 @@ def HeaderHTML():
     """
     
     siteColor = app.storage.user.get('site-color')
+    darkMode = app.storage.user.get('dark-mode')
 
     #Global site colors
-    ui.colors(primary=siteColor, secondary=SECONDARY, accent=ACCENT, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING, dark=DARK, dark_page=DARK_PAGE)
-    ui.dark_mode().enable() 
+    ui.colors(primary=siteColor, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING)
+    ui.dark_mode(darkMode)
+    ui.add_head_html('''
+    <style>
+        .body--light{''' + f"""
+            background: {L_BACKGROUND};
+            --q-element: {L_ELEMENT};
+            --q-border: {L_BORDER};
+            --q-text: {L_TEXT};
+            --q-text-secondary: {L_TEXT_SECONDARY};
+            """ +
+        '''
+        }             
+    ''') #light mode
+    ui.add_head_html('''
+    <style>
+        .body--dark{''' + f"""
+            --q-background: {D_BACKGROUND};
+            --q-element: {D_ELEMENT};
+            --q-border: {D_BORDER};
+            --q-text: {D_TEXT};
+            --q-text-secondary: {D_TEXT_SECONDARY};
+            """ +
+        '''
+        }             
+    ''') #dark mode
+
 
     #Fade animation
     ui.add_head_html('''
@@ -513,13 +557,12 @@ def HeaderHTML():
     }
     """)
 
-
 def OverlayCard() -> ui.card:
     """
     Creates an overlay card with global settings, useful for dialogs like win, stats, settings etc
     """
     
-    return ui.card().style(f'{BORDER_SETTINGS}; width: 20rem; height: 28rem').classes(f'hidden-scroll no-shadow items-center hidden-scrollbar')
+    return ui.card().style(f'{BORDER_SETTINGS}; width: 20rem; height: 28rem; background-color: var(--q-element) !important').classes(f'hidden-scroll no-shadow items-center hidden-scrollbar')
 
 def CreateDialogs(statElementsF, winElementsF) -> dict:
     """
@@ -552,36 +595,46 @@ def CreateDialogs(statElementsF, winElementsF) -> dict:
     dialogs['info'] = ui.dialog()
     with dialogs['info'], OverlayCard():
 
-        descriptionCSS = f'color: #AAAAAA; font-style: normal; font-size: 90%'
+        descriptionCSS = f'color: var(--q-text); font-style: normal; font-size: 90%'
         with ui.row().classes('justify-center items-center gap-1.5'):
-            ui.icon('sym_r_info', size="150%", color=TEXT_PRIMARY)
-            ui.label("Info").style(f"color: {TEXT_PRIMARY}; font-weight: bold; font-size: 150%")
-        with ui.expansion(text="How do I play?", icon='sym_r_help_outline').style(f"color: {TEXT_PRIMARY}; width: 100%; font-style: oblique; border-radius: {BORDER_RADIUS}"):
+            ui.icon('sym_r_info', size="150%", color='text')
+            ui.label("Info").style(f"color:  var(--q-text); font-weight: bold; font-size: 150%")
+        with ui.expansion(text="How do I play?", icon='sym_r_help_outline').style(f"color:  var(--q-text); width: 100%; font-style: oblique; border-radius: {BORDER_RADIUS}"):
             ui.label(f"""Your goal is to create a chain of related words to reach a 'target' word. 
                         Start and ending words are determined randomly, and links must have a maximum
                         similarity of {GameLogic.DISTANCE_CUTOFF} from the previous.""").style(descriptionCSS)
-        with ui.expansion(text='How are word similarities determined?', icon='sym_r_help_outline').style(f"color: {TEXT_PRIMARY}; width: 100%; font-style: oblique; border-radius: {BORDER_RADIUS}"):
+        with ui.expansion(text='How are word similarities determined?', icon='sym_r_help_outline').style(f"color:  var(--q-text); width: 100%; font-style: oblique; border-radius: {BORDER_RADIUS}"):
             ui.label(f"""{GAME_NAME} queries a database of over 70000 words that each have a corresponding vector. These vectors
                         are tweaked through NLP models. A euclidean distance operation between two word vectors returns the similarity.
                         Since similarity is based upon similar contexts, it doesn't necessarily translate to similar meaning.""").style(descriptionCSS)
-        with ui.expansion(text=f'Who created {GAME_NAME}?', icon='sym_r_help_outline').style(f"color: {TEXT_PRIMARY}; width: 100%; font-style: oblique; border-radius: {BORDER_RADIUS}"):
+        with ui.expansion(text=f'Who created {GAME_NAME}?', icon='sym_r_help_outline').style(f"color: var(--q-text); width: 100%; font-style: oblique; border-radius: {BORDER_RADIUS}"):
             ui.label(f"""Hudson Woolford programmed {GAME_NAME} in python for a Computer Science project at his school.""").style(descriptionCSS)
-            ui.label("""Ted Boss acted as a playtester and provided valuable feedback throughout development""").style(descriptionCSS + f'; color: {TEXT_SECONDARY}')
-        with ui.expansion(text='Have you made any other products?', icon='sym_r_help_outline').style(f"color: {TEXT_PRIMARY}; width: 100%; font-style: oblique; border-radius: {BORDER_RADIUS}"):
+            ui.label("""Ted Boss acted as a playtester and provided valuable feedback throughout development""").style(descriptionCSS + f'; color:  var(--q-text-secondary)')
+        with ui.expansion(text='Have you made any other products?', icon='sym_r_help_outline').style(f"color:  var(--q-text); width: 100%; font-style: oblique; border-radius: {BORDER_RADIUS}"):
             ui.label("""Hudson Woolford was a developer on Swingularity, an indie space golf game. Check it out!""").style(descriptionCSS)
             ui.link(text="Swingularity on STEAM", target="https://store.steampowered.com/app/3272450/Swingularity/", new_tab=True).style(descriptionCSS)
 
     #settings tools dialog
     dialogs['settings'] = ui.dialog()
-    with dialogs['settings'], OverlayCard().style('height: 26.5rem').classes('gap-3 justify-start !important items-between'):
+    with dialogs['settings'], OverlayCard().style('height: 26.5rem').classes('gap-3'):
         with ui.row().classes('justify-center items-center gap-1.5'):
-            ui.icon('sym_r_build', size="150%", color=TEXT_PRIMARY)
-            ui.label("Settings").style(f"color: {TEXT_PRIMARY}; font-weight: bold; font-size: 150%")
-        picker = ui.element('q-color').props('default-view=palette no-header no-footer').classes('w-full')
-        picker.on('update:model-value', lambda color: ChangeSiteColor(color.args))
-        # picker.q_color.props('default-view=palette no-header no-footer')
+            ui.icon('sym_r_build', size="150%", color='text')
+            ui.label("Settings").style(f"color: var(--q-text); font-weight: bold; font-size: 150%")
+
+        with ui.row().classes('justify-between items-center w-full'):
+            ui.label('Dark mode').style('color: text')
+            ui.switch().bind_value(app.storage.user, 'dark-mode')
         
-        ui.button(icon='sym_r_delete', text='Clear Data', on_click= lambda e: ClearUserData()).classes('justify-center w-full')
+        with ui.row().classes('justify-between items-center w-full'):
+            ui.label('Randomize color').style('color: text')
+            ui.switch().bind_value(app.storage.user, 'randomize-color')
+
+        with ui.row().classes('justify-between items-center w-full'):
+            ui.label('Color').style('color: text')
+            picker = ui.element('q-color').props(f'''default-view=palette no-header no-footer :palette="{D_SCHEMES if app.storage.user.get('dark-mode') else L_SCHEMES}"''')
+            picker.on('update:model-value', lambda color: ChangeSiteColor(color.args))
+        
+        # ui.button(icon='sym_r_delete', text='Clear Data', on_click= lambda e: ClearUserData()).classes('justify-center w-full')
 
     return dialogs
 
@@ -593,6 +646,10 @@ def InitializeStorage(seed: str, startWord: str, targetWord: str):
     #ensure user storage exists
     if(app.storage.user.get('site-color') == None):
         app.storage.user['site-color'] = PRIMARY
+    if(app.storage.user.get('randomize-color') == None):
+        app.storage.user['randomize-color'] = False
+    if(app.storage.user.get('dark-mode') == None):
+        app.storage.user['dark-mode'] = True
     if(app.storage.user.get('game-scores') == None):
         app.storage.user['game-scores'] = []
     if(app.storage.user.get('games-played') == None):
@@ -625,18 +682,18 @@ def ChangeSiteColor(color: str):
     """
 
     app.storage.user['site-color'] = color
-    ui.colors(primary=color, secondary=SECONDARY, accent=ACCENT, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING, dark=DARK, dark_page=DARK_PAGE)
+    # ui.colors(primary=color, secondary=SECONDARY, accent=ACCENT, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING, dark=DARK, dark_page=DARK_PAGE)
     ui.run_javascript(f'''
     document.documentElement.style.setProperty('--selection-color', '{color}');
     ''')
     ui.notify(f"Changed site color to {color}", timeout=500)
-    ui.navigate.reload()
+    # ui.navigate.reload()
 
 def ClearUserData():
     """
     Resets all storage for the user, equivalent to clearing.
     """
-    app.storage.user['color'] = None
+    app.storage.user['site-color'] = None
     app.storage.user['game-scores'] = None
     app.storage.user['games-played'] = None
     ui.navigate.reload()
@@ -705,11 +762,11 @@ def GuessInput(guess: str, refreshWordChain):
             wordChain.append(guess)
             app.storage.tab['word-chain'] = wordChain
             refreshWordChain(True)
-            ui.notify(message, type='positive', timeout=1500, position='bottom', badgeColor=POSITIVE, badgeTextColor=TEXT_PRIMARY)
+            ui.notify(message, type='positive', timeout=1500, position='bottom', badgeColor=POSITIVE, badgeTextColor='text')
         else:
-            ui.notify(message, type='warning', timeout=1500, position='bottom', badgeColor='warning', badgeTextColor=TEXT_BLACK)
+            ui.notify(message, type='warning', timeout=1500, position='bottom', badgeColor='warning', badgeTextColor='black')
     else:
-        ui.notify(message, type='negative', timeout=1500, position='bottom', badgeColor=NEGATIVE, badgeTextColor=TEXT_PRIMARY)
+        ui.notify(message, type='negative', timeout=1500, position='bottom', badgeColor=NEGATIVE, badgeTextColor='text')
 
 def WinGame(refreshStats, refreshWin):
     seed = app.storage.tab.get('seed')
@@ -738,7 +795,6 @@ def WinGame(refreshStats, refreshWin):
     refreshWin()
     dialogs['win'].open()
     app.storage.tab['won'] = True
-
 
 def RegisterTglBtn(btn: ToggleButton):
     btns = app.storage.client.get('toggle-btns')

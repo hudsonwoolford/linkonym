@@ -29,7 +29,7 @@ class ToggleButton(ui.button):
     
         with self.style(f"height: 3rem; box-shadow: none !important; text-transform: none;").props('unelevated'):
             if(label != None):
-                ui.label(label).style(f'font-weight: normal')
+                ui.label(label).style(f'font-weight: normal; color: var(--q-text)')
                 
 
     def enable(self, enable: bool) -> None:
@@ -42,5 +42,5 @@ class ToggleButton(ui.button):
         return self._state
 
     def update(self) -> None:
-        self.style(f'background-color: {self.col2 if self._state else self.col1} !important;')
+        self.style(f'background-color: var(--q-{self.col2 if self._state else self.col1}) !important;')
         super().update()
