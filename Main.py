@@ -19,8 +19,8 @@ L_TEXT = 'black'
 L_TEXT_SECONDARY = 'grey'
 L_BORDER = 'black'
 L_SCHEMES = [
-    '#191919', '#333333',
-    '#ffccff','#e6ccff', '#cce6ff', '#ccffff', '#ccffcc', '#ffffcc', '#ffe6cc', '#ffcccc',
+    '#b2b2b2', '#cdcdcd',
+    '#ffccff','#ccccff', '#cce6ff', '#ccffff', '#ccffcc', '#ffffcc', '#ffe6cc', '#ffcccc',
 ]
 
 #dark mode (D_[color-description])
@@ -89,6 +89,18 @@ async def GamePage(seed: str, mode: str = 'daily'):
 #endregion
 
     #region REFRESHABLES
+    def RefreshAll(dialogs: dict):
+        """
+        Used to refresh all elements, typically during site-wide colour changes
+        """
+
+        HeaderRow.refresh(dialogs)
+        StatsElements.refresh()
+        WinElements.refresh()
+        TerminalCards.refresh()
+        WordChain.refresh(False)
+        DictionaryText.refresh()
+
     @ui.refreshable
     def HeaderRow(dialogs: dict):
         """
@@ -623,7 +635,7 @@ def CreateDialogs(statElementsF, winElementsF) -> dict:
 
         with ui.row().classes('justify-between items-center w-full'):
             ui.label('Dark mode').style('color: text')
-            ui.switch().bind_value(app.storage.user, 'dark-mode')
+            ui.switch(on_change=lambda e: ChangeSiteMode(e.value), value=app.storage.user.get('dark-mode'))
         
         with ui.row().classes('justify-between items-center w-full'):
             ui.label('Randomize color').style('color: text')
@@ -654,6 +666,11 @@ def InitializeStorage(seed: str, startWord: str, targetWord: str):
         app.storage.user['game-scores'] = []
     if(app.storage.user.get('games-played') == None):
         app.storage.user['games-played'] = 0
+    
+    #randomize color (if selected)
+    if(app.storage.user.get('randomize-color')):
+        options = D_SCHEMES if app.storage.user.get('dark-mode') else L_SCHEMES
+        app.storage.user['site-color'] = options[_WebRandom.randrange(0, len(options))]
 
     #temp tab storage - if needs to be renewed
     if(app.storage.tab.get('seed') != seed):
@@ -676,6 +693,20 @@ def ChangeMode(mode: str):
     elif(mode=='daily'):
         ui.navigate.to('/daily')
 
+def ChangeSiteMode(dark: bool):
+    col = app.storage.user.get('site-color')
+    app.storage.user['dark-mode'] = dark
+    prevArr = L_SCHEMES if dark else D_SCHEMES
+    nextArr = D_SCHEMES if dark else L_SCHEMES
+    index = 0
+    try:
+        index = prevArr.index(col)
+    except ValueError:
+        return
+    
+    app.storage.user['site-color'] = nextArr[index]
+    ui.navigate.reload()
+
 def ChangeSiteColor(color: str):
     """
     Changes the primary color of the site to specified paremeter
@@ -687,7 +718,7 @@ def ChangeSiteColor(color: str):
     document.documentElement.style.setProperty('--selection-color', '{color}');
     ''')
     ui.notify(f"Changed site color to {color}", timeout=500)
-    # ui.navigate.reload()
+    ui.navigate.reload()
 
 def ClearUserData():
     """
