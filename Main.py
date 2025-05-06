@@ -640,18 +640,18 @@ def CreateDialogs(statElementsF, winElementsF) -> dict:
             ui.label("Settings").style(f"color: var(--q-text); font-weight: bold; font-size: 150%")
 
         with ui.row().classes('justify-between items-center w-full'):
-            ui.label('Dark mode').style('color: text')
+            ui.label('Dark mode').style('color: var(--q-text)')
             ui.switch(on_change=lambda e: (ChangeSiteMode(e.value), ColorPicker.refresh())).bind_value(app.storage.user, 'dark-mode')
         
         with ui.row().classes('justify-between items-center w-full'):
-            ui.label('Randomize color').style('color: text')
+            ui.label('Randomize color').style('color: var(--q-text)')
             ui.switch().bind_value(app.storage.user, 'randomize-color')
 
         with ui.row().classes('justify-between items-center w-full'):
-            ui.label('Color').style('color: text')
+            ui.label('Color').style('color: var(--q-text)')
             ColorPicker()
     
-        # ui.button(icon='sym_r_delete', text='Clear Data', on_click= lambda e: ClearUserData()).classes('justify-center w-full')
+        ui.button(icon='sym_r_delete', text='Clear Data', on_click= lambda e: ClearUserData()).classes('justify-center w-full').style('color: var(--q-text)')
 
     return dialogs
 
@@ -662,7 +662,7 @@ def InitializeStorage(seed: str, startWord: str, targetWord: str, mobile: bool, 
 
     #ensure user storage exists
     if(app.storage.user.get('color-index') == None):
-        app.storage.user['color-index'] = 5
+        app.storage.user['color-index'] = 6
     if(app.storage.user.get('randomize-color') == None):
         app.storage.user['randomize-color'] = False
     if(app.storage.user.get('dark-mode') == None):
@@ -719,9 +719,12 @@ def ClearUserData():
     """
     Resets all storage for the user, equivalent to clearing.
     """
-    app.storage.user['color-index'] = None
+    app.storage.user['color-index'] = 0
     app.storage.user['game-scores'] = None
     app.storage.user['games-played'] = None
+    app.storage.user['randomize-color'] = None
+    app.storage.user['dark-mode'] = None
+
     ui.navigate.reload()
 
 def RemoveLastLink():
@@ -933,7 +936,7 @@ START OF AUTO INDEX PAGE / SCRIPT LOGIC
 #RUN UI
 ui.run(
     reload=False, #watch files causes issues
-    title=f"{GAME_NAME}",
+    title=GAME_NAME,
     show=False, #dont reload
     storage_secret='SWINGULARITY',
     port= PORT,
