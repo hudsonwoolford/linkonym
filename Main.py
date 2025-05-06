@@ -110,7 +110,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
         mobile = app.storage.client.get('mobile')
         modeIcon = 'sym_r_today' if mode == 'daily' else 'sym_r_all_inclusive'
 
-        buttonWidth = '2.5rem' if mobile else '3rem'
+        buttonWidth = '2rem' if mobile else '3rem'
         #row for the entire header
         with ui.row().style(f'height: {HEADER_HEIGHT}').classes('justify-between items-center w-full'):
             #first 30%
@@ -119,19 +119,19 @@ async def GamePage(seed: str, mode: str = 'daily'):
                     with ui.item(on_click=lambda: ChangeMode('daily')).style('background-color: var(--q-element)') as specialItem:
                         specialItem.on_click(lambda: dropdownButton.close())
                         with ui.row().classes('justify-center items-center gap-1.5'):
-                            ui.icon('sym_r_today', color='text', size='125%')
+                            ui.icon('sym_r_today', size='125%').style(f"color: var(--q-text)")
                             ui.label("Daily").style(f"color: var(--q-text)")
                     with ui.item(on_click= lambda: ChangeMode('practice')).style('background-color: var(--q-element)') as specialItem:
                         specialItem.on_click(lambda: dropdownButton.close())
                         with ui.row().classes('justify-center items-center gap-1.5'):
-                            ui.icon('sym_r_all_inclusive', color='text', size='125%')
+                            ui.icon('sym_r_all_inclusive', size='125%').style(f"color: var(--q-text)")
                             ui.label("Seeded").style(f"color: var(--q-text)")
                 ui.button(icon='sym_r_undo', on_click=lambda: (RemoveLastLink(), WordChain.refresh(False))).style(f'width: {buttonWidth}; color: var(--q-text) !important;')
 
                 # ui.button(icon='sym_r_add_circle', on_click=lambda e: RestartBtn()).style('width: 10%')
 
             #game name
-            ui.label(f'{GAME_NAME}').style(f'color: var(--q-text); font-family: "Righteous"; font-size: 250%;').classes('absolute-center')
+            ui.label(f'{GAME_NAME}').style(f'color: var(--q-text); font-family: "Righteous"; font-size: {"200%" if mobile else "250%"};').classes('absolute-center')
 
             async def HintLocal():
                 await Hint(WordChain.refresh)
@@ -144,20 +144,20 @@ async def GamePage(seed: str, mode: str = 'daily'):
                     with ui.item(on_click=HintLocal).style('background-color: var(--q-element)') as specialHintItem:
                         specialHintItem.on_click(lambda: dropdownButton.close())
                         with ui.row().classes('justify-center items-center gap-1.5'):
-                            ui.icon('sym_r_lightbulb', color='text', size='125%')
+                            ui.icon('sym_r_lightbulb', size='125%').style(f"color: var(--q-text)")
                             ui.label("Hint").style(f"color: var(--q-text)")
                     with ui.item(on_click=GiveUpLocal).style('background-color: var(--q-element)') as specialGiveUpItem:
                         specialGiveUpItem.on_click(lambda: dropdownButton.close())
                         with ui.row().classes('justify-center items-center gap-1.5'):
-                            ui.icon('sym_r_flag', color='text', size='125%')
+                            ui.icon('sym_r_flag', size='125%').style(f"color: var(--q-text)")
                             ui.label("Give up").style(f"color: var(--q-text)")
                     with ui.item(on_click=lambda: (dialogs['stats'].open(), dropdownButton.close())).style('background-color: var(--q-element)'):
                         with ui.row().classes('justify-center items-center gap-1.5'):
-                            ui.icon('sym_r_bar_chart', color='color', size='125%')
+                            ui.icon('sym_r_bar_chart', size='125%').style(f"color: var(--q-text)")
                             ui.label("Stats").style(f"color: var(--q-text)")
                     with ui.item(on_click=lambda: (dialogs['settings'].open(), dropdownButton.close())).style('background-color: var(--q-element)'):
                         with ui.row().classes('justify-center items-center gap-1.5'):
-                            ui.icon('sym_r_build', color='color', size='125%')
+                            ui.icon('sym_r_build', size='125%').style(f"color: var(--q-text)")
                             ui.label("Settings").style(f"color: var(--q-text)")
                 ui.button(icon='sym_r_info', on_click=lambda: dialogs['info'].open()).style(f'width: {buttonWidth}; color: var(--q-text) !important;')
     
@@ -170,7 +170,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
         gameScores: list = app.storage.user.get('game-scores')
         gamesPlayed: int = app.storage.user.get('games-played')
         with ui.row().classes('justify-center items-center gap-1.5'):
-                ui.icon('sym_r_bar_chart', size="150%", color='text')
+                ui.icon('sym_r_bar_chart', size="150%").style(f"color: var(--q-text)")
                 ui.label("Stats").style(f"color: var(--q-text); font-weight: bold; font-size: 150%")
 
         if(len(gameScores) > 0):
@@ -240,23 +240,23 @@ async def GamePage(seed: str, mode: str = 'daily'):
             avgScore = round(avgScore / numGameScore, 2)
 
             with ui.row().classes('w-full justify-between items-center'):
-                ui.markdown(f'Average chain length')
+                ui.markdown(f'Average chain length').style(f"color: var(--q-text)")
                 ui.label(avgScore).style(f'color: var(--q-text-secondary)')
 
             with ui.row().classes('w-full justify-between items-center'):
-                ui.markdown(f'Shortest chain length')
+                ui.markdown(f'Shortest chain length').style(f"color: var(--q-text)")
                 ui.label(bestScore).style(f'color: var(--q-text-secondary)')
 
             with ui.row().classes('w-full justify-between items-center'):
-                ui.markdown(f'Daily streak')   
+                ui.markdown(f'Daily streak').style(f"color: var(--q-text)")   
                 ui.label(streak).style(f'color: var(--q-text-secondary)')
             
             with ui.row().classes('w-full justify-between items-center'):
-                ui.markdown(f'Games played')   
+                ui.markdown(f'Games played').style(f"color: var(--q-text)")   
                 ui.label(gamesPlayed).style(f'color: var(--q-text-secondary)')
             
         else:
-            ui.markdown('**No data yet!**').classes('absolute-center')
+            ui.markdown('**No data yet!**').classes('absolute-center').style(f"color: var(--q-text)")
     
     @ui.refreshable
     def WinElements():
@@ -272,7 +272,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
         #store parameters
         #set all parameters
         with ui.row().classes('justify-center items-center gap-1.5'):
-            ui.icon('sym_r_emoji_events' if not givenUp else 'sym_r_flag', size="150%", color='text')
+            ui.icon('sym_r_emoji_events' if not givenUp else 'sym_r_flag', size="150%").style(f"color: var(--q-text)")
             ui.label("You won!" if not givenUp else "Gave up!").style(f"color: var(--q-text); font-weight: bold; font-size: 150%")
 
         with ui.row().classes('justify-center items-center gap-1.5'):
@@ -610,7 +610,7 @@ def CreateDialogs(statElementsF, winElementsF) -> dict:
 
         descriptionCSS = f'color: var(--q-text); font-style: normal; font-size: 90%'
         with ui.row().classes('justify-center items-center gap-1.5'):
-            ui.icon('sym_r_info', size="150%", color='text')
+            ui.icon('sym_r_info', size="150%").style(f"color: var(--q-text)")
             ui.label("Info").style(f"color:  var(--q-text); font-weight: bold; font-size: 150%")
         with ui.expansion(text="How do I play?", icon='sym_r_help_outline').style(f"color:  var(--q-text); width: 100%; font-style: oblique; border-radius: {BORDER_RADIUS}"):
             ui.label(f"""Your goal is to create a chain of related words to reach a 'target' word. 
@@ -636,7 +636,7 @@ def CreateDialogs(statElementsF, winElementsF) -> dict:
     dialogs['settings'] = ui.dialog()
     with dialogs['settings'], OverlayCard().style('height: 26.5rem').classes('gap-3'):
         with ui.row().classes('justify-center items-center gap-1.5'):
-            ui.icon('sym_r_build', size="150%", color='text')
+            ui.icon('sym_r_build', size="150%").style(f"color: var(--q-text)")
             ui.label("Settings").style(f"color: var(--q-text); font-weight: bold; font-size: 150%")
 
         with ui.row().classes('justify-between items-center w-full'):
