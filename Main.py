@@ -89,12 +89,11 @@ async def GamePage(seed: str, mode: str = 'daily'):
 #endregion
 
     #region REFRESHABLES
-    def RefreshAll(dialogs: dict):
+    def RefreshAll():
         """
         Used to refresh all elements, typically during site-wide colour changes
         """
-
-        HeaderRow.refresh(dialogs)
+        HeaderRow.refresh()
         StatsElements.refresh()
         WinElements.refresh()
         TerminalCards.refresh()
@@ -102,18 +101,21 @@ async def GamePage(seed: str, mode: str = 'daily'):
         DictionaryText.refresh()
 
     @ui.refreshable
-    def HeaderRow(dialogs: dict):
+    def HeaderRow():
         """
         Creates all the objects seen in the website header. Should be a child of a header element.
         """
 
+        dialogs = app.storage.client.get('dialogs')
+        mobile = app.storage.client.get('mobile')
         modeIcon = 'sym_r_today' if mode == 'daily' else 'sym_r_all_inclusive'
 
+        buttonWidth = '2.5rem' if mobile else '3rem'
         #row for the entire header
         with ui.row().style(f'height: {HEADER_HEIGHT}').classes('justify-between items-center w-full'):
             #first 30%
             with ui.row().classes('justify-start').style('width: 30%'):
-                with ui.dropdown_button().props(f'dropdown-icon={modeIcon} no-icon-animation transition-show=jump-down transition-hide=jump-up').style('width: 3rem; color: var(--q-text) !important;') as dropdownButton:
+                with ui.dropdown_button().props(f'dropdown-icon={modeIcon} no-icon-animation transition-show=jump-down transition-hide=jump-up').style(f'width: {buttonWidth}; color: var(--q-text) !important;') as dropdownButton:
                     with ui.item(on_click=lambda: ChangeMode('daily')).style('background-color: var(--q-element)') as specialItem:
                         specialItem.on_click(lambda: dropdownButton.close())
                         with ui.row().classes('justify-center items-center gap-1.5'):
@@ -124,7 +126,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
                         with ui.row().classes('justify-center items-center gap-1.5'):
                             ui.icon('sym_r_all_inclusive', color='text', size='125%')
                             ui.label("Seeded").style(f"color: var(--q-text)")
-                ui.button(icon='sym_r_undo', on_click=lambda: (RemoveLastLink(), WordChain.refresh(False))).style('width: 3rem; color: var(--q-text) !important;')
+                ui.button(icon='sym_r_undo', on_click=lambda: (RemoveLastLink(), WordChain.refresh(False))).style(f'width: {buttonWidth}; color: var(--q-text) !important;')
 
                 # ui.button(icon='sym_r_add_circle', on_click=lambda e: RestartBtn()).style('width: 10%')
 
@@ -138,7 +140,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
 
             #last 30%
             with ui.row().classes('justify-end').style('width: 30%'):
-                with ui.dropdown_button().props('dropdown-icon=sym_r_more_vert no-icon-animation transition-show=jump-down transition-hide=jump-up text-color=var(--q-text)').style('width: 3rem; color: var(--q-text) !important;') as dropdownButton:
+                with ui.dropdown_button().props('dropdown-icon=sym_r_more_vert no-icon-animation transition-show=jump-down transition-hide=jump-up text-color=var(--q-text)').style(f'width: {buttonWidth}; color: var(--q-text) !important;') as dropdownButton:
                     with ui.item(on_click=HintLocal).style('background-color: var(--q-element)') as specialHintItem:
                         specialHintItem.on_click(lambda: dropdownButton.close())
                         with ui.row().classes('justify-center items-center gap-1.5'):
@@ -157,7 +159,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
                         with ui.row().classes('justify-center items-center gap-1.5'):
                             ui.icon('sym_r_build', color='color', size='125%')
                             ui.label("Settings").style(f"color: var(--q-text)")
-                ui.button(icon='sym_r_info', on_click=lambda: dialogs['info'].open()).style('width: 3rem; color: var(--q-text) !important;')
+                ui.button(icon='sym_r_info', on_click=lambda: dialogs['info'].open()).style(f'width: {buttonWidth}; color: var(--q-text) !important;')
     
     @ui.refreshable
     def StatsElements():
@@ -208,7 +210,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
                     'type' : 'bar',
                     'data': [{'name': score['seed'], 'value': score['score'], 'date': score['date']} for score in gameScores],
                     'name' : 'Score',
-                    'color': app.storage.user.get('site-color')
+                    'color': CurrentColorScheme()[app.storage.user.get('color-index')]
                 }
             ]
             })
@@ -297,7 +299,6 @@ async def GamePage(seed: str, mode: str = 'daily'):
         """
 
         terminalWords = app.storage.tab.get('terminal-words')
-        color = app.storage.user.get('site-color')
 
         #create cards for start and target
         with ui.row().classes('gap-0 items-center justify-between w-full'):
@@ -386,7 +387,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
     random.seed(seed)
     startWord, targetWord = GetStartEndWords(seed, mode)
 
-    InitializeStorage(seed, startWord, targetWord) #initialize all storage variables
+    InitializeStorage(seed, startWord, targetWord, mobile, refreshAll=RefreshAll) #initialize all storage variables
     HeaderHTML() #inject custom html to header
     dialogs = CreateDialogs(StatsElements, WinElements) #get dialogs
     app.storage.client['dialogs'] = dialogs #store dialogs
@@ -396,7 +397,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
     
     #header
     with ui.header().style(f'background-color: var(--q-element)').style(f'font-size: 24; height: {HEADER_HEIGHT}').classes('py-0 w-screen font-weight-bold'):
-        HeaderRow(dialogs)
+        HeaderRow()
 
     #main game column
     gameWidth = '22rem' if mobile else GAME_WIDTH
@@ -437,24 +438,24 @@ async def GamePage(seed: str, mode: str = 'daily'):
         inputWordBox.on('keydown', lambda e: OnEnterWord(inputWordBox) if e.args['key'] == "Enter" else None) #call wrapper if key is enter
 
     
-            
-
-
     #endregion
 
 #region UTILITY
 def HeaderHTML():
     """
     Add custom head html for global custom classes, font-sizes, etc
-        Requires site color storage to be set
+        Requires site color and dark mode storage to be set
     """
-    
-    siteColor = app.storage.user.get('site-color')
-    darkMode = app.storage.user.get('dark-mode')
+    siteColor = CurrentColorScheme()[app.storage.user.get('color-index')]
 
     #Global site colors
+    def ModeRefresh():
+        ui.colors(primary=CurrentColorScheme()[app.storage.user.get('color-index')])
+        app.storage.client.get('refresh-all')()
+
     ui.colors(primary=siteColor, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING)
-    ui.dark_mode(darkMode)
+    darkMode = ui.dark_mode().bind_value_from(app.storage.user, 'dark-mode')
+    darkMode.on_value_change(lambda: ModeRefresh())
     ui.add_head_html('''
     <style>
         .body--light{''' + f"""
@@ -627,6 +628,11 @@ def CreateDialogs(statElementsF, winElementsF) -> dict:
             ui.link(text="Swingularity on STEAM", target="https://store.steampowered.com/app/3272450/Swingularity/", new_tab=True).style(descriptionCSS)
 
     #settings tools dialog
+    @ui.refreshable
+    def ColorPicker():
+        picker = ui.element('q-color').props(f'''default-view=palette no-header no-footer :palette="{D_SCHEMES if app.storage.user.get('dark-mode') else L_SCHEMES}"''')
+        picker.on('update:model-value', lambda color: ChangeSiteColor(color.args))
+
     dialogs['settings'] = ui.dialog()
     with dialogs['settings'], OverlayCard().style('height: 26.5rem').classes('gap-3'):
         with ui.row().classes('justify-center items-center gap-1.5'):
@@ -635,7 +641,7 @@ def CreateDialogs(statElementsF, winElementsF) -> dict:
 
         with ui.row().classes('justify-between items-center w-full'):
             ui.label('Dark mode').style('color: text')
-            ui.switch(on_change=lambda e: ChangeSiteMode(e.value), value=app.storage.user.get('dark-mode'))
+            ui.switch(on_change=lambda e: (ChangeSiteMode(e.value), ColorPicker.refresh())).bind_value(app.storage.user, 'dark-mode')
         
         with ui.row().classes('justify-between items-center w-full'):
             ui.label('Randomize color').style('color: text')
@@ -643,21 +649,20 @@ def CreateDialogs(statElementsF, winElementsF) -> dict:
 
         with ui.row().classes('justify-between items-center w-full'):
             ui.label('Color').style('color: text')
-            picker = ui.element('q-color').props(f'''default-view=palette no-header no-footer :palette="{D_SCHEMES if app.storage.user.get('dark-mode') else L_SCHEMES}"''')
-            picker.on('update:model-value', lambda color: ChangeSiteColor(color.args))
-        
+            ColorPicker()
+    
         # ui.button(icon='sym_r_delete', text='Clear Data', on_click= lambda e: ClearUserData()).classes('justify-center w-full')
 
     return dialogs
 
-def InitializeStorage(seed: str, startWord: str, targetWord: str):
+def InitializeStorage(seed: str, startWord: str, targetWord: str, mobile: bool, refreshAll):
     """
     Initializes all tab, user, and client storage. User storage will not be overwritten, but will be initialized if they don't exist.
     """
 
     #ensure user storage exists
-    if(app.storage.user.get('site-color') == None):
-        app.storage.user['site-color'] = PRIMARY
+    if(app.storage.user.get('color-index') == None):
+        app.storage.user['color-index'] = 5
     if(app.storage.user.get('randomize-color') == None):
         app.storage.user['randomize-color'] = False
     if(app.storage.user.get('dark-mode') == None):
@@ -669,8 +674,7 @@ def InitializeStorage(seed: str, startWord: str, targetWord: str):
     
     #randomize color (if selected)
     if(app.storage.user.get('randomize-color')):
-        options = D_SCHEMES if app.storage.user.get('dark-mode') else L_SCHEMES
-        app.storage.user['site-color'] = options[_WebRandom.randrange(0, len(options))]
+        app.storage.user['color-index'] = _WebRandom.randrange(0, len(CurrentColorScheme()))
 
     #temp tab storage - if needs to be renewed
     if(app.storage.tab.get('seed') != seed):
@@ -685,6 +689,8 @@ def InitializeStorage(seed: str, startWord: str, targetWord: str):
     #temp client storage
     app.storage.client['toggle-btns'] = []
     app.storage.client['selected-word'] = ''
+    app.storage.client['refresh-all'] = refreshAll
+    app.storage.client['mobile'] = mobile
 
 def ChangeMode(mode: str):
     app.storage.tab['mode'] = mode
@@ -694,37 +700,26 @@ def ChangeMode(mode: str):
         ui.navigate.to('/daily')
 
 def ChangeSiteMode(dark: bool):
-    col = app.storage.user.get('site-color')
     app.storage.user['dark-mode'] = dark
-    prevArr = L_SCHEMES if dark else D_SCHEMES
-    nextArr = D_SCHEMES if dark else L_SCHEMES
-    index = 0
-    try:
-        index = prevArr.index(col)
-    except ValueError:
-        return
-    
-    app.storage.user['site-color'] = nextArr[index]
-    ui.navigate.reload()
 
 def ChangeSiteColor(color: str):
     """
     Changes the primary color of the site to specified paremeter
     """
 
-    app.storage.user['site-color'] = color
-    # ui.colors(primary=color, secondary=SECONDARY, accent=ACCENT, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING, dark=DARK, dark_page=DARK_PAGE)
+    app.storage.user['color-index'] = int(CurrentColorScheme().index(color))
+    ui.colors(primary=CurrentColorScheme()[app.storage.user.get('color-index')])
     ui.run_javascript(f'''
     document.documentElement.style.setProperty('--selection-color', '{color}');
     ''')
     ui.notify(f"Changed site color to {color}", timeout=500)
-    ui.navigate.reload()
+    app.storage.client.get('refresh-all')() #refresh all elements
 
 def ClearUserData():
     """
     Resets all storage for the user, equivalent to clearing.
     """
-    app.storage.user['site-color'] = None
+    app.storage.user['color-index'] = None
     app.storage.user['game-scores'] = None
     app.storage.user['games-played'] = None
     ui.navigate.reload()
@@ -924,7 +919,9 @@ async def GiveUp(refreshWordChain):
             break
 
     notif.dismiss()
-    
+
+def CurrentColorScheme():
+    return D_SCHEMES if app.storage.user.get('dark-mode') else L_SCHEMES
 
 #region LOGIC
 """
