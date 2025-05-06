@@ -651,7 +651,7 @@ def CreateDialogs(statElementsF, winElementsF) -> dict:
             ui.label('Color').style('color: var(--q-text)')
             ColorPicker()
     
-        ui.button(icon='sym_r_delete', text='Clear Data', on_click= lambda e: ClearUserData()).classes('justify-center w-full').style('color: var(--q-text)')
+        ui.button(icon='sym_r_delete', text='Clear Data', on_click= lambda e: ClearUserData()).classes('justify-center w-full').style('color: var(--q-text) !important')
 
     return dialogs
 
@@ -719,7 +719,7 @@ def ClearUserData():
     """
     Resets all storage for the user, equivalent to clearing.
     """
-    app.storage.user['color-index'] = 0
+    app.storage.user['color-index'] = 6
     app.storage.user['game-scores'] = None
     app.storage.user['games-played'] = None
     app.storage.user['randomize-color'] = None
