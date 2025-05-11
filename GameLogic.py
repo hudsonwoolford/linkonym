@@ -5,6 +5,8 @@ import random
 import datetime
 import os
 import FileManager
+import Dijkstra
+import math
 
 FEAT_SUFFIX_REMOVE = {
     'Number=Plur' : [
@@ -20,7 +22,7 @@ FEAT_SUFFIX_REMOVE = {
     ]
 
 }
-DISTANCE_CUTOFF = 0.325 #max distance for word chain
+SIM_CUTOFF = 0.675 #min similarity for word chain
 TERMINAL_RANGE = range(100, 10000)
 WORD_CATEGORY = {
     "banned" :["PRON", "DET", "CCONJ", "SCONJ", "PART", "PUNCT", "AUX", "INTJ"],
@@ -30,10 +32,11 @@ WORD_CATEGORY = {
 
 #persistant game variables
 _nlp = None #natural language processor
-_WordData = None #global word data
-_FSRWordInfo = None #global word info for only lemma
+_WordData = None #global word data (feature removed)
+_OtherData = None #global word info for words with extra features (non feature removed)
 _BannedData = None #global banned word data
 _DailyData = None #global daily data
+_WordAdjacency = None #global word adjacency list
 
 def RandomKey(dic: dict, dataRange: range = None):
     keyList =  list(dic.keys())
@@ -44,44 +47,39 @@ def RandomKey(dic: dict, dataRange: range = None):
         dataRange = range(0, min(len(keyList), dataRange.stop), dataRange.step)
     return str(keyList[random.randrange(dataRange.start, dataRange.stop, dataRange.step)])
 
-def HintWord(w1: str, w2: str, wordChain: list, maxDistanceJump: float = 0.25, chunkSize: int = 10000) -> str:
-    t1 = _WordData['emb'][_WordData['vocab'][w1]['id']]
-    t2 = _WordData['emb'][_WordData['vocab'][w2]['id']]
-    
-    currentChunk = 0
+def HintWord(w1: str, w2: str, wordChain: list) -> str:
+    startSim = WordSim(w1, w2)
+    if(startSim >= SIM_CUTOFF):
+        return w2
 
-    while currentChunk < len(_WordData['vocab'].keys()):
-        currentDist = TensorCosSimilarity(t1, t2)
+    allWords = list(_WordData['vocab'].keys())
+    random.shuffle(allWords)
+    for w in allWords:
+        if(w in wordChain):
+            continue
+        
+        if(WordSim(w1, w) >= SIM_CUTOFF):
+            jump = WordSim(w, w2) - startSim
+            if(jump > 0.01 and jump < 0.1):
+                return w
 
-        twentyClosest = ClosestWords(w1, 30, rangeSelect=range(currentChunk, currentChunk+chunkSize), searchInfo=_FSRWordInfo)
-        bestGuess = ("PLACEHOLDER", 1000)
-        #calculate distances from all closest to the target
-        for worddist in twentyClosest:
-            #barriers from being valid
-            if(worddist[0] == w2): continue #cant be target
-            if(worddist[1] > DISTANCE_CUTOFF): continue #cant be a guess out of range
-            if(worddist[0] in wordChain): continue #cant be already guessed
+    print('falling back')
+    return SolutionPath(w1, w2, wordChain)[0] #fallback
 
-            t = _WordData['emb'][_WordData['vocab'][worddist[0]]['id']]
-            dist = TensorCosSimilarity(t, t2)
+def SolutionPath(w1: str, w2: str, wordChain: list) -> list[str]:
+    id1 = _WordData['vocab'][w1]['id']
+    id2 = _WordData['vocab'][w2]['id']
+    idChain = [_WordData['vocab'][w]['id'] for w in wordChain]
 
-            #skip if the hint is too good
-            if(currentDist - dist > maxDistanceJump): continue
+    allWords = [str(w) for w in _WordData['vocab'].keys()]
+    path = Dijkstra.DijkstraPath(_WordAdjacency, id1, id2, idChain[:-1])
+    wordPath = [allWords[id] for id in path]
 
-            
-            if(bestGuess[1] > dist):
-                bestGuess = (worddist[0], dist)
-
-        if(currentDist - bestGuess[1] <= maxDistanceJump):
-            return bestGuess[0]
-        else:
-            currentChunk += chunkSize
-    
-    return 'FAILFAILFAIL'
+    return wordPath
 
 def TensorCosSimilarity(t1: Tensor, t2: Tensor) -> float:
     cos = CosineSimilarity(dim=0)
-    return (1-float(cos(t1, t2)))/2
+    return (float(cos(t1, t2))+1)/2
 
 def WordTensor(word: str):
     global _WordData
@@ -104,9 +102,9 @@ def ClosestWords(w: str, amount: int = 10, rangeSelect: range = None, searchInfo
 def WordSim(w1: str, w2: str, roundDigits: int = 5):
     return round(TensorCosSimilarity(WordTensor(w1), WordTensor(w2)), roundDigits)
 
-def ValidateWordDist(validatedGuess: str, wordChain: list) -> tuple[bool, str]:
+def ValidateWordSim(validatedGuess: str, wordChain: list) -> tuple[bool, str]:
     """
-    Takes a **validated** guess as an input. Returns whether it is valid in terms of distance and a message about the distance.
+    Takes a **validated** guess as an input. Returns whether it is valid in terms of similarity and a message about the similarity.
     """
     global _WordData
 
@@ -116,11 +114,10 @@ def ValidateWordDist(validatedGuess: str, wordChain: list) -> tuple[bool, str]:
     
     prevWord = wordChain[-1]
     dist = WordSim(prevWord, validatedGuess)
-    if(dist <= DISTANCE_CUTOFF):
-        return True, f"Chained '{prevWord}' -> '{validatedGuess}' ({round(dist, 3)})"
+    if(dist >= SIM_CUTOFF):
+        return True, f"Chained '{prevWord}' and '{validatedGuess}' ({math.floor(dist*100)}%)"
     else:
-        return False, f"Failed to chain '{validatedGuess}' ({round(dist, 3)} is too far)"
-    
+        return False, f"'{validatedGuess}' isn't similar enough ({math.floor(dist*100)}%)"
 
 def ValidateGuess(guess: str, wordChain: list) -> tuple[bool, str, str]:
     """
@@ -134,23 +131,25 @@ def ValidateGuess(guess: str, wordChain: list) -> tuple[bool, str, str]:
     possibleValues = list(_WordData["vocab"].keys())
 
     guess = guess.strip().lower() #ensure no weird spaces or casing
+    guess = FeatSuffixRemove(guess) #make plur sing and past present
+
     if(guess in possibleValues):
-        guess = FeatSuffixRemove(guess) #make plur sing and past present
         if(guess in wordChain):
             return False, f"'{guess}' is already in chain!", guess
     else:
         if(guess in _BannedData["vocab"].keys()):
-            return False, f"'{guess}' isn't descriptive enough.", guess
+            return False, f"'{guess}' isn't descriptive enough", guess
         else:
-            return False, "I don't know that word!", guess
+            return False, "I don't know that word", guess
 
         
     return True, f"Guessed '{guess}.'", guess
 
 def FeatSuffixRemove(word: str):
+    if(word not in _OtherData['vocab'].keys()): return word
 
     for f in FEAT_SUFFIX_REMOVE.keys():
-        if(f not in str(_WordData["vocab"][word]["feats"])):
+        if(f not in str(_OtherData["vocab"][word]["feats"])):
             continue
 
         for sufReplace in FEAT_SUFFIX_REMOVE[f]:
@@ -173,20 +172,21 @@ def FSRDict():
     
     return fsrDict
 
-def GenerateStartEndWords(minDistance: float = 0.325) -> tuple[str, str]:
+def GenerateStartEndWords(maxSimilarity: float = 0.675) -> tuple[str, str]:
     """
-    Generates start and end words for game randomly, optional minDistance parameter
+    Generates start and end words for game randomly, optional maxSimilarity parameter
     """
+    wordInfo = _WordData['vocab']
 
-    end = RandomKey(_FSRWordInfo, TERMINAL_RANGE)
-    while _FSRWordInfo[end]["pos"] in WORD_CATEGORY["halfBanned"]:
-        end = RandomKey(_FSRWordInfo, TERMINAL_RANGE)
+    end = RandomKey(wordInfo, TERMINAL_RANGE)
+    while wordInfo[end]["pos"] in WORD_CATEGORY["halfBanned"]:
+        end = RandomKey(wordInfo, TERMINAL_RANGE)
 
 
     K = 0
-    start = RandomKey(_FSRWordInfo, TERMINAL_RANGE)
-    while  _FSRWordInfo[start]["pos"] in WORD_CATEGORY["halfBanned"] or WordSim(start, end) < minDistance:
-        start = RandomKey(_FSRWordInfo, TERMINAL_RANGE)
+    start = RandomKey(wordInfo, TERMINAL_RANGE)
+    while  wordInfo[start]["pos"] in WORD_CATEGORY["halfBanned"] or WordSim(start, end) > maxSimilarity:
+        start = RandomKey(wordInfo, TERMINAL_RANGE)
         K+=1
         if(K > 10000):
             print("Warning: Taking too long to determine start and end words, maybe lower minDistance or raise terminal range?")
@@ -194,14 +194,14 @@ def GenerateStartEndWords(minDistance: float = 0.325) -> tuple[str, str]:
 
     return start, end
 
-
-def LoadWordData(wordPath: str, bannedPath: str, dailyPath: str):
-    global _WordData, _BannedData, _DailyData, _FSRWordInfo
+def LoadWordData(wordPath: str, bannedPath: str, otherPath: str, dailyPath: str, adjacencyPath: str):
+    global _WordData, _BannedData, _DailyData, _OtherData, _WordAdjacency
 
     _WordData = torchLoad(wordPath)
     _BannedData = torchLoad(bannedPath)
     _DailyData = FileManager.LoadJsonDict(dailyPath)
-    _FSRWordInfo = FSRDict()
+    _WordAdjacency = torchLoad(adjacencyPath)
+    _OtherData = torchLoad(otherPath)
 
     # _WordData["vocab"] = StanzaUtility.LemmatarizedDict(_WordData["vocab"]) #get lemma only
 
@@ -220,7 +220,7 @@ def CreateDailyGames(amount: int, seed: int) -> dict:
 
 #get word data
 baseDir = os.path.dirname(os.path.abspath(__file__))
-LoadWordData(os.path.join(baseDir,'data/WikipediaWData.pt'), os.path.join(baseDir,'data/WikipediaBData.pt'), os.path.join(baseDir, 'data/DailyGames.json'))
+LoadWordData(os.path.join(baseDir,'data/WikipediaWData.pt'), os.path.join(baseDir,'data/WikipediaBData.pt'),  os.path.join(baseDir,'data/WikipediaOData.pt'), os.path.join(baseDir, 'data/DailyGames.json'), os.path.join(baseDir, 'data/WordAdjacency.pt'))
 
 # dailyGames = CreateDailyGames(365, 0)
 # import FileManager

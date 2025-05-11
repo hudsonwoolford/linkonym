@@ -8,6 +8,8 @@ import random
 import FileManager
 import datetime
 import os
+import math
+import ValueRemapping
 
 #region PARAMETERS
 #Colors
@@ -321,10 +323,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
         #create a card for each word
         with ui.column().classes("w-full gap-2"):
             for i, word in enumerate(wordChain):
-                dist = GameLogic.WordSim(word, terminalWords[1], 3)
-                chainMessage =  f"({dist}) to '{terminalWords[1]}'" if dist > 0 else f"Equal to '{terminalWords[1]}'"
-                # if(not i == len(GameLogic._WordChain)-1):
-                #     chainMessage = f"({GameLogic.WordSim(word, GameLogic._WordChain[i+1], 3)})"
+                dist = ValueRemapping.BezierApproximation(GameLogic.WordSim(word, terminalWords[1], 3))
                 appendStyle = "" if i != len(wordChain) - 1 or not fadeIn  else "; animation: fade 0.3s"
                 
                 tglBtn = ToggleButton(linkedId=word, col1='element', col2='primary', on_enable=lambda e: DictionaryText.refresh()).style(f"width: 100%; {BORDER_SETTINGS}" + appendStyle).classes(f'custom-button-content')
@@ -333,7 +332,16 @@ async def GamePage(seed: str, mode: str = 'daily'):
                     with ui.row().style('width: 100%').classes('gap-4 h-full items-center justify-start text-left'):
                         ui.label(f'{i+1}').style(f'color: var(--q-text-secondary)')
                         ui.label(word).style(f'font-weight: normal; color: var(--q-text)')
-                        ui.label(f'{chainMessage}').style(f'color: var(--q-text-secondary)').classes('ml-auto')
+
+                        with ui.element('div').style('position: relative; width: 30%; height: 50%;').classes('ml-auto'):
+                            lightness = '100%' if app.storage.user['dark-mode'] else '-100%'
+                            with ui.linear_progress(value=dist, show_value=False).props('rounded').style(f'width: 100%; height: 100%; color: {"primary" if dist > GameLogic.SIM_CUTOFF else f"hsla(0,0%,{lightness},.5)"} !important'):
+                                #visualize cutoff
+                                 ui.element('div').classes('q-linear-progress__model absolute-full q-linear-progress__model--with-transition q-linear-progress__model--determinate').style(f'transform: scale3d({GameLogic.SIM_CUTOFF},1,1); color: hsla(0, 0%, {lightness}, 0.1) !important')
+                            ui.badge(f'{math.floor(dist*100)}%').style(
+                                f'position: absolute; top: 0; left: 0; transform: translate(-30%, -35%); z-index: 1; color: var(--q-text);'
+                            )
+                            
                 
                 if(word == terminalWords[1]):
                     WinGame(StatsElements.refresh, WinElements.refresh)
@@ -446,6 +454,7 @@ def HeaderHTML():
     Add custom head html for global custom classes, font-sizes, etc
         Requires site color and dark mode storage to be set
     """
+    ui.add_head_html('<meta name="description" content="Linkonym is a word game where you chain similar words together to reach a target word.">')
     siteColor = CurrentColorScheme()[app.storage.user.get('color-index')]
 
     #Global site colors
@@ -614,8 +623,8 @@ def CreateDialogs(statElementsF, winElementsF) -> dict:
             ui.label("Info").style(f"color:  var(--q-text); font-weight: bold; font-size: 150%")
         with ui.expansion(text="How do I play?", icon='sym_r_help_outline').style(f"color:  var(--q-text); width: 100%; font-style: oblique; border-radius: {BORDER_RADIUS}"):
             ui.label(f"""Your goal is to create a chain of related words to reach a 'target' word. 
-                        Start and ending words are determined randomly, and links must have a maximum
-                        similarity of {GameLogic.DISTANCE_CUTOFF} from the previous.""").style(descriptionCSS)
+                        Start and ending words are determined randomly, and links must have a minimum
+                        similarity of {GameLogic.SIM_CUTOFF} from the previous.""").style(descriptionCSS)
         with ui.expansion(text='How are word similarities determined?', icon='sym_r_help_outline').style(f"color:  var(--q-text); width: 100%; font-style: oblique; border-radius: {BORDER_RADIUS}"):
             ui.label(f"""{GAME_NAME} queries a database of over 70000 words that each have a corresponding vector. These vectors
                         are tweaked through NLP models. A euclidean distance operation between two word vectors returns the similarity.
@@ -744,7 +753,7 @@ def GetStartEndWords(seed: str, mode: str) -> tuple[str, str]:
         terminals = GameLogic._DailyData[str(datetime.datetime.now().date())].split(', ')
         return terminals[0], terminals[1]
     else:
-        return GameLogic.GenerateStartEndWords(minDistance=0.5)
+        return GameLogic.GenerateStartEndWords(maxSimilarity=0.5)
 
 def CopyClipboardGame():
     """
@@ -785,7 +794,7 @@ def GuessInput(guess: str, refreshWordChain):
 
     valid, message, guess = GameLogic.ValidateGuess(guess, wordChain) #if guess is valid/(if it is in possible values and not banned)
     if(valid):
-        valid, message = GameLogic.ValidateWordDist(guess, wordChain) #get result of guessing the word, valid if it is within distance
+        valid, message = GameLogic.ValidateWordSim(guess, wordChain) #get result of guessing the word, valid if it is within distance
 
         if(valid):
             wordChain.append(guess)
@@ -856,22 +865,14 @@ async def Hint(refreshWordChain):
     lastWord = wordChain[-1]
 
     notif = ui.notification(timeout=None)
-    notif.message = 'Calculating hint...'
+    notif.message = 'Thinking...'
     notif.spinner = True
 
-    if(GameLogic.WordSim(lastWord, terminalWords[1]) < GameLogic.DISTANCE_CUTOFF):
-        GuessInput(terminalWords[1], refreshWordChain)
-    else:
-        await asyncio.sleep(0.1)  #let the nicegui render the notification
-        
-        #run HintWord in a thread so it doesn't block
-        loop = asyncio.get_running_loop()
-        hint = await loop.run_in_executor(None, GameLogic.HintWord, lastWord, terminalWords[1], wordChain, 0.15)
-
-        if(hint == 'FAILFAILFAIL'):
-            ui.notify('No possible matches! Please undo.', color='negative')
-        else:
-            GuessInput(hint, refreshWordChain)
+    await asyncio.sleep(0.1)  #let the nicegui render the notification
+    
+    loop = asyncio.get_running_loop()
+    hint = await loop.run_in_executor(None, GameLogic.HintWord, lastWord, terminalWords[1], wordChain)
+    GuessInput(hint, refreshWordChain)
 
     refreshWordChain(True)
 
@@ -890,6 +891,8 @@ async def GiveUp(refreshWordChain):
     numHints = app.storage.tab.get('num-hints')
     terminalWords = app.storage.tab.get('terminal-words')
 
+    lastWord = wordChain[-1]
+
     notif = ui.notification(timeout=None)
     notif.message = 'Solving...'
     notif.spinner = True
@@ -898,30 +901,25 @@ async def GiveUp(refreshWordChain):
 
     #run HintWord in a thread so it doesn't block
     loop = asyncio.get_running_loop()
-    for i in range(0, 20):
-        lastWord = wordChain[-1]
-        hint = await loop.run_in_executor(None, GameLogic.HintWord, lastWord, terminalWords[1], wordChain, 0.15, 10000 if i < 10 else 70000)
-        if(hint == 'FAILFAILFAIL'):
-            ui.notify('No possible matches! Winning automatically...', color='negative')
-            wordChain.append(terminalWords[1])
-            app.storage.tab['word-chain'] = wordChain
-            refreshWordChain(True)
-            break
+    solutionPath = await loop.run_in_executor(None, GameLogic.SolutionPath, lastWord, terminalWords[1], wordChain)
+    solutionPath = solutionPath[1:]
 
-        GuessInput(hint, refreshWordChain)
-        refreshWordChain(True)
-        wordChain = app.storage.tab.get('word-chain')
-        numHints += 1
-        if(GameLogic.WordSim(hint, terminalWords[1]) < GameLogic.DISTANCE_CUTOFF):
-            await asyncio.sleep(0.5)  #wait a bit for clarity
-            app.storage.tab['given-up'] = True
-            app.storage.tab['num-hints'] = numHints
-            GuessInput(terminalWords[1], refreshWordChain)
-            numHints += 1
-            refreshWordChain(True)
-            break
+    notif.message = 'Solution found'
+    notif.spinner = False
+    notif.type = 'positive'
 
+    await asyncio.sleep(0.1)  #let the nicegui render the notification
     notif.dismiss()
+
+    for guess in solutionPath:
+        GuessInput(guess, refreshWordChain)
+        numHints += 1
+        await asyncio.sleep(0.2)
+    
+    app.storage.tab['num-hints'] = numHints
+    app.storage.tab['given-up'] = True
+
+
 
 def CurrentColorScheme():
     return D_SCHEMES if app.storage.user.get('dark-mode') else L_SCHEMES
@@ -942,4 +940,5 @@ ui.run(
     port= PORT,
     favicon='<svg xmlns="http://www.w3.org/2000/svg" enable-background="new 0 0 24 24" height="24px" viewBox="0 0 24 24" width="24px" fill="#e3e3e3"><g><rect fill="none" height="24" width="24"/></g><g><path d="M15,16v1.26l-6-3v-3.17L11.7,8H16V2h-6v4.9L7.3,10H3v6h5l7,3.5V22h6v-6H15z M12,4h2v2h-2V4z M7,14H5v-2h2V14z M19,20h-2v-2 h2V20z"/></g></svg>'
 )
+ui.add_head_html('<meta name="description" content="Linkonym is a word game where you chain similar words together to reach a target word.">')
 #endregion

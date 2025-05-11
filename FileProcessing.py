@@ -1,10 +1,11 @@
 import enchant
-import stanza.pipeline
 import torch
 import stanza
 import time
 import GameLogic
 import pandas as pd
+import FileManager
+import random
 
 def AddWord(embedsPath: str, appendPath: str, appendWord: str):
     appendWord = appendWord.lower()
@@ -200,80 +201,101 @@ def ProcessEmbedsToPT(path: str,
     torch.save(bannedWordData, bannedPath)
     print(f"Done! Completed file - wrote {wordIteration} words and {bannedIteration} banned words to their respective files.")
 
-import torch
-import pandas as pd
+def WordEdgeMatrix(wordData: dict, similarityCutoff: float = 0.675, topK: int = 100) -> torch.Tensor:
+    startTime = time.perf_counter()
 
-def CreateEdgeCSV(edgePath: str, wordData: dict, similarityCutoff: float = 0.675):
-    print("Initializing...")
-    edgeDict = {
-        'source': [],
-        'target': [],
-    }
+    print("Processing word edge matrix")
+    vectors: torch.Tensor = wordData['emb']
+    vectors = vectors.half()
 
-    wordInfo = wordData['vocab']
-    allWords = list(wordInfo.keys())
-
-    embeds = []
-    for w in allWords:
-        embeds.append(wordData['emb'][wordInfo[w]['id']])
-
-    vectors: torch.Tensor = torch.stack(embeds)
-    
     print("Normalizing...")
     vectors = vectors / vectors.norm(dim=1, keepdim=True) #normalize
     print("Multiplying...")
-    simMatrix = (torch.matmul(vectors, vectors.T)+1)/2
-    print("Culling...")
-    simMatrix = torch.triu(simMatrix, diagonal=1)
-    print("Comparing...")
-    simMatrix = torch.nonzero(simMatrix>similarityCutoff)
+    simMatrix = (torch.matmul(vectors, vectors.T)+1)/2 #multiply and get between 0 and 1
+    print(f"Top {topK}...")
+    _, indices = torch.topk(simMatrix, k=topK, dim=1)
+    mask = torch.zeros_like(simMatrix, dtype=torch.bool)
+    rows = torch.arange(simMatrix.size(0)).unsqueeze(1)
+    mask[rows, indices] = True
+    simMatrix[~mask] = 0
 
-    print("Appending...")
-    for coords in simMatrix:
-        edgeDict['source'].append(wordData['vocab'][allWords[coords[0]]]['id'])
-        edgeDict['target'].append(wordData['vocab'][allWords[coords[1]]]['id'])
+    del mask, rows, indices #free memory
 
-    print("Saving...")
-    edgeDf = pd.DataFrame(edgeDict)
-    edgeDf.to_csv(edgePath, index=False)
+    print("Applying cutoff...")
+    simMatrix = simMatrix>similarityCutoff #boolean matrix for if there is an edge
 
-def ConvertCSVToID(loadPath: str, savePath: str, wordData: dict):
-    df = pd.read_csv(loadPath)
+    print(f'Completed edge matrix in {time.perf_counter()-startTime} seconds')
+    return simMatrix
 
-    newList = []
-    for w in df['source']:
-        newList.append(wordData['vocab'][w]['id'])
+def EdgePairsToAdjencyList(edgePairs: list, maxID):
+    startTime = time.perf_counter()
+
+    print('Converting edge matrix to adjacency list')
+
+    adjencyList = {}
+    for i in range(0, maxID):
+        adjencyList[i] = []
+
+    for edge in edgePairs:
+        adjencyList[edge[0]].append(edge[1])
+                
+        
+
+
+        
+            
     
-    df['source'] = newList
+    print(f'Completed adjency list in {time.perf_counter() - startTime} seconds')
+    return adjencyList
 
-    newList = []
-    for w in df['target']:
-        newList.append(wordData['vocab'][w]['id'])
-    
-    df['target'] = newList
-    
-    df.to_csv(savePath)
 
-def CreateNodesCSV(nodePath: str, wordData: dict):
-    nodeDict = {
-        'id': [],
-        'label': [],
-    }
+#make wordata smaller for testing
+# length = 10000
+shortWordData = {
+    'vocab' : {},
+    'emb' : torch.Tensor()
+}
+# embeds = []
+# allWords = list(GameLogic._WordData['vocab'].keys())
+# for i in range(0, length):
+#     index = random.randrange(0, len(allWords))
+#     while allWords[index] in shortWordData["vocab"].keys():
+#         index = random.randrange(0, len(allWords))
 
-    wordInfo = wordData['vocab']
-    allWords = list(wordInfo.keys())
-    # Iterate over all words to populate the node dictionary
-    for word in allWords:
-        nodeDict["id"].append(wordInfo[word]['id'])
-        nodeDict["label"].append(word)
-    
-    # Convert dictionaries to DataFrames and write them to CSV
-    nodeDf = pd.DataFrame(nodeDict)
-    
-    nodeDf.to_csv(nodePath, index=False)
 
-CreateEdgeCSV('output/WordEdges.csv', GameLogic._WordData)
+#     shortWordData['vocab'][allWords[index]] = GameLogic._WordData['vocab'][allWords[index]]
+#     embeds.append(GameLogic._WordData['emb'][shortWordData['vocab'][allWords[index]]['id']])
+#     shortWordData['vocab'][allWords[index]]['id'] = i
+
+# shortWordData['emb'] = torch.stack(embeds)
+
+# edgePairs = torch.nonzero(WordEdgeMatrix(shortWordData, similarityCutoff=0.68)).tolist()
+# adjList = EdgePairsToAdjencyList(edgePairs, len(shortWordData['vocab'].keys()))
+# print('Saving JSON...')
+# FileManager.SaveJsonDict(adjList, 'output/SmallAdjacencyList.json', indent=None)
+
+otherWordData = {
+    'vocab' : {},
+    'emb' : torch.Tensor()
+}
+fullData = torch.load('data/FullWikipediaWData.pt')
+wordData = GameLogic._WordData
+embeds = []
+wordOptions = wordData['vocab'].keys()
+for w in fullData['vocab'].keys():
+    if(w not in wordOptions):
+        otherWordData['vocab'][w] = fullData['vocab'][w]
+        embeds.append(fullData['emb'][fullData['vocab'][w]['id']])
+
+otherWordData['emb'] = torch.stack(embeds)
+torch.save(otherWordData, 'output/WikipediaOData.pt')
+
+
+# CleanWordData()
+
+
 # ConvertCSVToID('output/WordEdges.csv', 'output/WordEdgesID.csv', GameLogic._WordData)
+
 # print(len(GameLogic.LemmatarizedDict(GameLogic._WordData['vocab']))) #45379
 # processors = "tokenize, mwt, pos, lemma" #processors required for lemmatarization and noun identification
 # prenlp = stanza.Pipeline(lang='en', processors=processors, device='cuda', download_method=None)
