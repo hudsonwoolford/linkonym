@@ -1,5 +1,6 @@
 from nicegui import ui, app
 import GameLogic
+import WordManager as wm
 from CustomUI import ToggleButton
 from CustomUI import ToggleButtonManager
 import Dictionary as WordDictionary
@@ -81,10 +82,10 @@ def RootPage():
 async def DailyPage():
     await GamePage('daily', mode='daily')
 
-#practice game page
-@ui.page('/practice/{seed}')
+#random game page
+@ui.page('/random/{seed}')
 async def DailyPage(seed: str):
-    await GamePage(seed, mode='practice')
+    await GamePage(seed, mode='random')
 
 #shared game page for rendering everything
 async def GamePage(seed: str, mode: str = 'daily'):
@@ -123,11 +124,11 @@ async def GamePage(seed: str, mode: str = 'daily'):
                         with ui.row().classes('justify-center items-center gap-1.5'):
                             ui.icon('sym_r_today', size='125%').style(f"color: var(--q-text)")
                             ui.label("Daily").style(f"color: var(--q-text)")
-                    with ui.item(on_click= lambda: ChangeMode('practice')).style('background-color: var(--q-element)') as specialItem:
+                    with ui.item(on_click= lambda: ChangeMode('random')).style('background-color: var(--q-element)') as specialItem:
                         specialItem.on_click(lambda: dropdownButton.close())
                         with ui.row().classes('justify-center items-center gap-1.5'):
                             ui.icon('sym_r_all_inclusive', size='125%').style(f"color: var(--q-text)")
-                            ui.label("Seeded").style(f"color: var(--q-text)")
+                            ui.label("Random").style(f"color: var(--q-text)")
                 ui.button(icon='sym_r_undo', on_click=lambda: (RemoveLastLink(), WordChain.refresh(False))).style(f'width: {buttonWidth}; color: var(--q-text) !important;')
 
                 # ui.button(icon='sym_r_add_circle', on_click=lambda e: RestartBtn()).style('width: 10%')
@@ -285,13 +286,13 @@ async def GamePage(seed: str, mode: str = 'daily'):
         with ui.scroll_area().style(f'border-color: var(--q-border); border-radius: {BORDER_RADIUS}; border-width: 1px; width: 90%').classes('h-full') as scrollArea:
             with ui.timeline(side='right', layout='dense').classes('gap-0 p-0 h-full'):
                 for i, w in enumerate(wordChain):
-                    GameLogic.WordSim(w, terminalWords[1], 3)
+                    wm.WordSim(w, terminalWords[1], 3)
                     ui.timeline_entry("",subtitle=w).style('height: 4rem').classes('p-0')
                 scrollArea.scroll_to(percent=0)
                 ui.run_javascript(f"getElement('{scrollArea.id}').setScrollPercentage('vertical', 1, 750)")
 
         with ui.row().style('width: 100%; height: 10%').classes('justify-center'):
-            ui.button(icon='sym_r_add_circle', on_click=lambda e: (ui.navigate.to(f'/practice/{_WebRandom.randint(0, 50000000)}'))).style('color: var(--q-text) !important;')
+            ui.button(icon='sym_r_add_circle', on_click=lambda e: (ui.navigate.to(f'/random/{_WebRandom.randint(0, 50000000)}'))).style('color: var(--q-text) !important;')
             ui.button(icon='sym_r_ios_share', on_click=lambda e: CopyClipboardGame()).style('color: var(--q-text) !important;')
     
     @ui.refreshable 
@@ -323,7 +324,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
         #create a card for each word
         with ui.column().classes("w-full gap-2"):
             for i, word in enumerate(wordChain):
-                dist = ValueRemapping.BezierApproximation(GameLogic.WordSim(word, terminalWords[1], 3))
+                dist = ValueRemapping.BezierApproximation(wm.WordSim(word, terminalWords[1], 3))
                 appendStyle = "" if i != len(wordChain) - 1 or not fadeIn  else "; animation: fade 0.3s"
                 
                 tglBtn = ToggleButton(linkedId=word, col1='element', col2='primary', on_enable=lambda e: DictionaryText.refresh()).style(f"width: 100%; {BORDER_SETTINGS}" + appendStyle).classes(f'custom-button-content')
@@ -360,7 +361,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
             definitionNotFound = False
             definitions = WordDictionary.getRecordsAdvanced(word)
             if(definitions == None or len(definitions.keys())==0): 
-                word = GameLogic._WordData['vocab'][word]['lemma']
+                word = wm._WordData['vocab'][word]['lemma']
                 definitions = WordDictionary.getRecordsAdvanced(word)
 
             if(definitions == None or len(definitions.keys())==0):
@@ -454,6 +455,7 @@ def HeaderHTML():
     Add custom head html for global custom classes, font-sizes, etc
         Requires site color and dark mode storage to be set
     """
+    ui.add_head_html('<link rel="canonical" href="https://linkonym.com/daily">')
     ui.add_head_html('<meta name="description" content="Linkonym is a word game where you chain similar words together to reach a target word.">')
     siteColor = CurrentColorScheme()[app.storage.user.get('color-index')]
 
@@ -703,8 +705,8 @@ def InitializeStorage(seed: str, startWord: str, targetWord: str, mobile: bool, 
 
 def ChangeMode(mode: str):
     app.storage.tab['mode'] = mode
-    if(mode == 'practice'):
-        ui.navigate.to(f'/practice/{_WebRandom.randint(0, 50000000)}')
+    if(mode == 'random'):
+        ui.navigate.to(f'/random/{_WebRandom.randint(0, 50000000)}')
     elif(mode=='daily'):
         ui.navigate.to('/daily')
 
@@ -721,7 +723,7 @@ def ChangeSiteColor(color: str):
     ui.run_javascript(f'''
     document.documentElement.style.setProperty('--selection-color', '{color}');
     ''')
-    ui.notify(f"Changed site color to {color}", timeout=500)
+    ui.notify(f"Changed site color to {color}", timeout=500, position='top' if app.storage.client.get('mobile') else 'bottom')
     app.storage.client.get('refresh-all')() #refresh all elements
 
 def ClearUserData():
@@ -750,10 +752,11 @@ def GetStartEndWords(seed: str, mode: str) -> tuple[str, str]:
 
     if(mode == 'daily'):
         #daily word retrieval
-        terminals = GameLogic._DailyData[str(datetime.datetime.now().date())].split(', ')
+        terminals = wm._DailyData[str(datetime.datetime.now().date())].split(', ')
         return terminals[0], terminals[1]
     else:
-        return GameLogic.GenerateStartEndWords(maxSimilarity=0.5)
+        return GameLogic.GenerateStartEndWords(maxSimilarity=0.5
+                                               )
 
 def CopyClipboardGame():
     """
@@ -769,6 +772,7 @@ def CopyClipboardGame():
     for word in wordChain:
         chain += f"||{word}||\n"
 
+    url = 'http://linkonym.com/daily' if app.storage.tab.get('mode') == 'daily' else f'http://linkonym.com/random/{app.storage.tab.get("seed")}'
     #write to clipboard
     ui.clipboard.write(f"""----------
 Check out my {GAME_NAME} game! 🙂
@@ -780,15 +784,16 @@ Here's my word chain from '{terminalWords[0]}' to '{terminalWords[1]}': 🔗
 Score: {len(wordChain)-1} 🔥
 Hints: {numHints} 💡
 
-You can play the same game here: http://{GAME_NAME}.com/{app.storage.tab.get('seed')}
+You can play the same game here: {url}
 ----------""")
     
-    ui.notify("Copied game to clipboard")
+    ui.notify("Copied game to clipboard", position='top' if app.storage.client.get('mobile') else 'bottom')
 
 def GuessInput(guess: str, refreshWordChain):
     """
     Guesses the word, validates it, checks distance, notifies user on status, and appends to word chain if valid 
     """
+    pos = 'top' if app.storage.client.get('mobile') else 'bottom'
 
     wordChain = app.storage.tab.get('word-chain')
 
@@ -800,11 +805,11 @@ def GuessInput(guess: str, refreshWordChain):
             wordChain.append(guess)
             app.storage.tab['word-chain'] = wordChain
             refreshWordChain(True)
-            ui.notify(message, type='positive', timeout=1500, position='bottom', badgeColor=POSITIVE, badgeTextColor='text')
+            ui.notify(message, type='positive', timeout=1500, position=pos, badgeColor=POSITIVE, badgeTextColor='text')
         else:
-            ui.notify(message, type='warning', timeout=1500, position='bottom', badgeColor='warning', badgeTextColor='black')
+            ui.notify(message, type='warning', timeout=1500, position=pos, badgeColor='warning', badgeTextColor='black')
     else:
-        ui.notify(message, type='negative', timeout=1500, position='bottom', badgeColor=NEGATIVE, badgeTextColor='text')
+        ui.notify(message, type='negative', timeout=1500, position=pos, badgeColor=NEGATIVE, badgeTextColor='text')
 
 def WinGame(refreshStats, refreshWin):
     seed = app.storage.tab.get('seed')
@@ -919,8 +924,6 @@ async def GiveUp(refreshWordChain):
     app.storage.tab['num-hints'] = numHints
     app.storage.tab['given-up'] = True
 
-
-
 def CurrentColorScheme():
     return D_SCHEMES if app.storage.user.get('dark-mode') else L_SCHEMES
 
@@ -940,5 +943,7 @@ ui.run(
     port= PORT,
     favicon='<svg xmlns="http://www.w3.org/2000/svg" enable-background="new 0 0 24 24" height="24px" viewBox="0 0 24 24" width="24px" fill="#e3e3e3"><g><rect fill="none" height="24" width="24"/></g><g><path d="M15,16v1.26l-6-3v-3.17L11.7,8H16V2h-6v4.9L7.3,10H3v6h5l7,3.5V22h6v-6H15z M12,4h2v2h-2V4z M7,14H5v-2h2V14z M19,20h-2v-2 h2V20z"/></g></svg>'
 )
+ui.add_head_html('<link rel="canonical" href="https://linkonym.com/daily">')
 ui.add_head_html('<meta name="description" content="Linkonym is a word game where you chain similar words together to reach a target word.">')
+
 #endregion

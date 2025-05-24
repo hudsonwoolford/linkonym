@@ -1,5 +1,5 @@
 import random
-import torch 
+import WordManager as wm
 
 def GetPath(links: dict, source, target):
     path = [target]
@@ -13,12 +13,12 @@ def GetPath(links: dict, source, target):
     path.reverse()
     return path
 
-def MinDistanceNode(distances: dict, seachSpace: list, rand=False):
-    if(len(distances.keys()) == 0): return None
+def ClosestNodes(distances: dict, searchSpace: list) -> list:
+    if(len(distances.keys()) == 0 or len(searchSpace) == 0): return None
 
     nodes = {}
     result = float('inf') if min else 0
-    for id in seachSpace:
+    for id in searchSpace:
         dist = distances[id]
 
         if(dist in nodes.keys()):
@@ -29,8 +29,29 @@ def MinDistanceNode(distances: dict, seachSpace: list, rand=False):
         if(dist < result):
             result = dist
     
-    index = random.randrange(0, len(nodes[result])) if rand else 0
-    return nodes[result][index]
+    return nodes[result]
+
+def GreedyNode(distances: dict, searchSpace: list, target: int):
+    # closest = ClosestNodes(distances, searchSpace)
+    # if(closest == None): return None
+    if(len(distances.keys()) == 0 or len(searchSpace) == 0): return None
+
+
+    bestID = (searchSpace[0], wm.TensorCosSimilarity(wm.IDTensor(searchSpace[0]), wm.IDTensor(target)))
+    for id in searchSpace:
+        sim = wm.TensorCosSimilarity(wm.IDTensor(id), wm.IDTensor(target))
+
+        if(sim > bestID[1]):
+            bestID = (id, sim)
+
+    return bestID[0]
+
+def MinDistanceNode(distances: dict, searchSpace: list, rand=False):
+    closest = ClosestNodes(distances, searchSpace)
+    if(closest == None): return None
+
+    index = random.randrange(0, len(closest)) if rand else 0
+    return closest[index]
 
 def DijkstraPath(adjList: dict, source: int, target: int, banned: list = [], ):
     source = source
@@ -53,7 +74,7 @@ def DijkstraPath(adjList: dict, source: int, target: int, banned: list = [], ):
     #dijkstra search
     found = False
     while not found:
-        current = MinDistanceNode(distances, list(searchSpace))
+        current = GreedyNode(distances, list(searchSpace), target)
         if(current == None):
             return None
         

@@ -1,7 +1,5 @@
 import json
 
-
-
 def LoadJsonDict(path: str) -> dict:
     return json.load(open(path, 'r', encoding="utf-8"))
 
