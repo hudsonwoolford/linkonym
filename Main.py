@@ -75,6 +75,8 @@ def PiStatsPage():
 #root page
 @ui.page('/')
 def RootPage():
+    ui.add_head_html('<link rel="canonical" href="https://linkonym.com/daily">')
+    ui.add_head_html('<meta name="description" content="Linkonym is a word game where you chain similar words together to reach a target word.">')
     ui.navigate.to('/daily')
 
 #daily game page
