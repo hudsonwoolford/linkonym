@@ -1,4 +1,5 @@
 import random
+import torch 
 
 def GetPath(links: dict, source, target):
     path = [target]
@@ -12,72 +13,79 @@ def GetPath(links: dict, source, target):
     path.reverse()
     return path
 
-def MinDistanceNode(distances: dict, rand=False):
+def MinDistanceNode(distances: dict, seachSpace: list, rand=False):
     if(len(distances.keys()) == 0): return None
 
     nodes = {}
-    minDist = float('inf')
-    for node in distances.keys():
-        dist = distances[node]
+    result = float('inf') if min else 0
+    for id in seachSpace:
+        dist = distances[id]
 
         if(dist in nodes.keys()):
-            nodes[dist].append(node)
+            nodes[dist].append(id)
         else:
-            nodes[dist] = [node]
+            nodes[dist] = [id]
 
-        if(dist < minDist):
-            minDist = dist
+        if(dist < result):
+            result = dist
     
-    index = random.randrange(0, len(nodes[minDist])) if rand else 0
-    return nodes[minDist][index]
+    index = random.randrange(0, len(nodes[result])) if rand else 0
+    return nodes[result][index]
 
-def DijkstraPath(adjList: dict, source: int, target: int, banned: list = []):
+def DijkstraPath(adjList: dict, source: int, target: int, banned: list = [], ):
     source = source
     target = target
 
     #initialise node info (links and distances)
+    searchSpace = set({})
     links = {}
     distances = {}
     for node in adjList.keys():
-        if(node in banned):
+        if(node in banned or node == source):
             continue
 
-        distances[node]= float('inf')
+        distances[node] = float('inf')
         links[node] = None
 
     distances[source] = 0
+    searchSpace.add(source)
     
     #dijkstra search
     found = False
     while not found:
-        current = MinDistanceNode(distances, rand=True) #get the min distance node
-        unvisited = distances.keys()
+        current = MinDistanceNode(distances, list(searchSpace))
         if(current == None):
             return None
+        
+        currentDist = distances.pop(current) #get the min distance node and remove it from dict
+        searchSpace.remove(current)
+
+        unvisited = distances.keys()
 
         # print(distances, current) #tracking
         #iterate through every neighbor of node
         for neighbor in adjList[current]:
-
-            #completion case
-            if(neighbor == target): 
-                found = True
-            
             #dont consider already visited nodes
             if(neighbor == current or neighbor not in unvisited):
                 continue
             
+            if(neighbor not in searchSpace):
+                searchSpace.add(neighbor)
+            
             #set distance of neighbor 
-            distances[neighbor] = distances[current] + 1
-            links[neighbor] = current
+            newDist = currentDist + 1
+            if(newDist < distances[neighbor]):
+                distances[neighbor] = currentDist + 1
+                links[neighbor] = current
 
-        #remove visited/analyzed node
-        distances.pop(current)
-    
+            #completion case
+            if(neighbor == target): 
+                found = True
+                break
+
     return GetPath(links, source, target) #return shortest path
 
 
-# wordAL = torch.load('output/NewAdjList.pt')
 
 # allWords = list(shortWordData['vocab'].keys())
 # options = []
@@ -87,14 +95,15 @@ def DijkstraPath(adjList: dict, source: int, target: int, banned: list = []):
 #     except:
 #         pass
 
+# wordData = torch.load('data/WikipediaWData.pt')
+# allWords = list(wordData['vocab'].keys())
+# wordAL = torch.load('data/WordAdjacency.pt')
 # while True:
 #     start = input('Start: ')
 #     target = input('Target: ')
-
-#     path = DijkstraPath(wordAL, shortWordData['vocab'][start]['id'], shortWordData['vocab'][target]['id'])
-#     print(path)
+#     path = DijkstraPath(wordAL, wordData['vocab'][start]['id'], wordData['vocab'][target]['id'])
 #     for id in path:
-#         print(allWords[id])
+#         print(id)
          
 
 
