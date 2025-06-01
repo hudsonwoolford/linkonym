@@ -75,8 +75,7 @@ def PiStatsPage():
 #root page
 @ui.page('/')
 def RootPage():
-    ui.add_head_html('<link rel="canonical" href="https://linkonym.com/daily">')
-    ui.add_head_html('<meta name="description" content="Linkonym is a word game where you chain similar words together to reach a target word.">')
+    HeaderHTML()
     ui.navigate.to('/daily')
 
 #daily game page
@@ -457,9 +456,17 @@ def HeaderHTML():
     Add custom head html for global custom classes, font-sizes, etc
         Requires site color and dark mode storage to be set
     """
+    siteColor = CurrentColorScheme()[app.storage.user.get('color-index')]
+    
+    #Important stuff
+    ui.add_head_html("""
+    <!-- Light mode favicon (dark icon) -->
+    <link rel="icon" type="image/svg+xml" media="(prefers-color-scheme: light)" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" height="24" width="24" fill="%23111"><path d="M15,16v1.26l-6-3v-3.17L11.7,8H16V2h-6v4.9L7.3,10H3v6h5l7,3.5V22h6v-6H15z M12,4h2v2h-2V4z M7,14H5v-2h2V14z M19,20h-2v-2 h2V20z"/></svg>'>
+    <!-- Dark mode favicon (light icon) -->
+    <link rel="icon" type="image/svg+xml" media="(prefers-color-scheme: dark)" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" height="24" width="24" fill="%23e3e3e3"><path d="M15,16v1.26l-6-3v-3.17L11.7,8H16V2h-6v4.9L7.3,10H3v6h5l7,3.5V22h6v-6H15z M12,4h2v2h-2V4z M7,14H5v-2h2V14z M19,20h-2v-2 h2V20z"/></svg>'>
+    """)
     ui.add_head_html('<link rel="canonical" href="https://linkonym.com/daily">')
     ui.add_head_html('<meta name="description" content="Linkonym is a word game where you chain similar words together to reach a target word.">')
-    siteColor = CurrentColorScheme()[app.storage.user.get('color-index')]
 
     #Global site colors
     def ModeRefresh():
@@ -942,10 +949,11 @@ ui.run(
     title=GAME_NAME,
     show=False, #dont reload
     storage_secret='SWINGULARITY',
-    port= PORT,
-    favicon='<svg xmlns="http://www.w3.org/2000/svg" enable-background="new 0 0 24 24" height="24px" viewBox="0 0 24 24" width="24px" fill="#e3e3e3"><g><rect fill="none" height="24" width="24"/></g><g><path d="M15,16v1.26l-6-3v-3.17L11.7,8H16V2h-6v4.9L7.3,10H3v6h5l7,3.5V22h6v-6H15z M12,4h2v2h-2V4z M7,14H5v-2h2V14z M19,20h-2v-2 h2V20z"/></g></svg>'
+    favicon='''<svg xmlns="http://www.w3.org/2000/svg" height="24" width="24" fill="#111">
+  <path d="M15,16v1.26l-6-3v-3.17L11.7,8H16V2h-6v4.9L7.3,10H3v6h5l7,3.5V22h6v-6H15z M12,4h2v2h-2V4z M7,14H5v-2h2V14z M19,20h-2v-2 h2V20z"/>
+</svg>''',
+    port= PORT
 )
-ui.add_head_html('<link rel="canonical" href="https://linkonym.com/daily">')
-ui.add_head_html('<meta name="description" content="Linkonym is a word game where you chain similar words together to reach a target word.">')
+
 
 #endregion

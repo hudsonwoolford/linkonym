@@ -32,8 +32,6 @@ def ClosestNodes(distances: dict, searchSpace: list) -> list:
     return nodes[result]
 
 def GreedyNode(distances: dict, searchSpace: list, target: int):
-    # closest = ClosestNodes(distances, searchSpace)
-    # if(closest == None): return None
     if(len(distances.keys()) == 0 or len(searchSpace) == 0): return None
 
 
