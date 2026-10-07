@@ -456,7 +456,7 @@ def HeaderHTML():
     Add custom head html for global custom classes, font-sizes, etc
         Requires site color and dark mode storage to be set
     """
-    siteColor = CurrentColorScheme()[app.storage.user.get('color-index')]
+    siteColor = CurrentColorScheme()[app.storage.user.get('color-index', 0)]
     
     #Important stuff
     ui.add_head_html("""
@@ -470,7 +470,7 @@ def HeaderHTML():
 
     #Global site colors
     def ModeRefresh():
-        ui.colors(primary=CurrentColorScheme()[app.storage.user.get('color-index')])
+        ui.colors(primary=CurrentColorScheme()[app.storage.user.get('color-index' 0)])
         app.storage.client.get('refresh-all')()
 
     ui.colors(primary=siteColor, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING)

@@ -55,4 +55,4 @@ def LoadWordData(wordPath: str, bannedPath: str, otherPath: str, dailyPath: str,
 
 
 baseDir = os.path.dirname(os.path.abspath(__file__))
-LoadWordData(os.path.join(baseDir,'data/WikipediaWData.pt'), os.path.join(baseDir,'data/WikipediaBData.pt'),  os.path.join(baseDir,'data/WikipediaOData.pt'), os.path.join(baseDir, 'data/DailyGames.json'), os.path.join(baseDir, 'data/WordAdjacency.pt'))
+LoadWordData(os.path.join(baseDir,'data/2024_WikipediaWData.pt'), os.path.join(baseDir,'data/2024_WikipediaBData.pt'),  os.path.join(baseDir,'data/WikipediaOData.pt'), os.path.join(baseDir, 'data/DailyGames.json'), os.path.join(baseDir, 'data/WordAdjacency.pt'))

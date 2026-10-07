@@ -103,14 +103,13 @@ def ValidatedGuess(possibleValues: list = None, bannedValues: list = None) -> st
         guess, inKeys, inBanned =  GetGuess()
     
     return guess.strip()
-
 def TextBasedGame():
     won = False
-    keys = _WordData["vocab"].keys()
+    keys = wm._WordData["vocab"].keys()
     
     track, target = "",""
     while True:
-        track, target = StartEndWords(minDistance=0.5)
+        track, target = "pesticide", "confession"
         print("Start =", track)
         print("Target =", target)
         
@@ -121,32 +120,20 @@ def TextBasedGame():
     bannedWords = []
     while True:
         #get valid guess
-        guess = ValidatedGuess(keys, bannedWords)
-        while WordSim(track, guess) > DISTANCE_CUTOFF:
-            print(f"{track} -> {guess} ({round(WordSim(track, guess), 4)}) is too far")
-            guess = ValidatedGuess(keys, bannedWords)
+        guess = input("Guess: ")
+        while wm.WordSim(track, guess) < SIM_CUTOFF:
+            print(f"{track} -> {guess} ({round(wm.WordSim(track, guess), 4)}) is too far")
+            guess = input("Guess: ")
 
         wordChain.append(guess)
-        #check for lemma guess win state
-        if(StanzaUtility.LemmaWord(guess, _nlp) == target):
-            won = True
-            print("Congrats! You won!")
-            print("Full word chain:", ' -> '.join(wordChain))
-            break
 
-        print(f"Chained: {track} -> {guess} ({round(WordSim(track, guess), 4)})")
-        print(f"{guess} is {round(WordSim(guess, target), 4)} away from {target}")
+        print(f"Chained: {track} -> {guess} ({round(wm.WordSim(track, guess), 4)})")
+        print(f"{guess} is {round(wm.WordSim(guess, target), 4)} similar to {target}")
         track = guess
         bannedWords.append(guess)
 
-        #get midpoint of words
-        # midword = MidpointWord(lemma2embed, guess, target, bannedWords=bannedWords)
-        # bannedWords.append(midword)
-        # print(f"{guess} -> {midword}")
-    
     if(input("Play again? (y): ").lower() == 'y'):
         TextBasedGame()
-
 def DataToWordList(data: dict, dataRange: range = None):
 
     if(dataRange==None):

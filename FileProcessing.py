@@ -35,7 +35,7 @@ def AddWord(embedsPath: str, appendPath: str, appendWord: str):
             }
             vector = torch.tensor([float(things[i]) for i in range(1, len(things))])
             wordData["emb"] = torch.vstack((wordData["emb"], vector))
-    
+
     torch.save(wordData, appendPath)
 
 def TransferPosWords(fromPath: str, toPath: str, posFilter: list = None):
@@ -53,15 +53,15 @@ def TransferPosWords(fromPath: str, toPath: str, posFilter: list = None):
 
     for w in deleteWords:
         del fromData["vocab"][w] #delete dictionary entry in old
-    
+
     torch.save(fromData, fromPath)
     torch.save(toData, toPath)
 
-def ProcessEmbedsToPT(path: str, 
-                     minLength: int = 3, 
-                     maxLength: int = 50, 
-                     alphabetOnly: bool = False, 
-                     checkDic: bool = False, 
+def ProcessEmbedsToPT(path: str,
+                     minLength: int = 3,
+                     maxLength: int = 50,
+                     alphabetOnly: bool = False,
+                     checkDic: bool = False,
                      allowDigits: bool = True,
                      bannedPos: list = None,
                      skipLines: list = None,
@@ -79,7 +79,7 @@ def ProcessEmbedsToPT(path: str,
         --pos
         --feats
         emb
-    
+
     The 'emb' key holds an N dimensional tensor with word embeds corresponding to the index=word-id
     """
 
@@ -120,8 +120,8 @@ def ProcessEmbedsToPT(path: str,
         if(i != 0 and i % 10000 == 0):
             sinceStart = time.time() - timer
             unitTime = sinceStart/i
-            print(f"{i} out of {len(lines)} processed. {bannedIteration} banned {wordIteration} allowed. {sinceStart} seconds since start, {time.time() - lastTime} for last 10k. Est remaining: {unitTime*(len(lines)-i)} seconds")
-            lastTime = time.time() 
+            print(f"{i} out of {len(lines)} processed. {bannedIteration} banned {wordIteration} allowed. {sinceStart:.2f} seconds since start, {time.time() - lastTime:.2f} for last 10k. Est remaining: {unitTime*(len(lines)-i):.2f} seconds")
+            lastTime = time.time()
 
             #update and save files in case of crash
             bannedWordData["emb"] = torch.stack(bannedTensor)
@@ -130,13 +130,13 @@ def ProcessEmbedsToPT(path: str,
             torch.save(wordData, dataPath)
 
         #get line things
-        things = line.rstrip().split(" ")   
+        things = line.rstrip().split(" ")
         if(len(things)>0):
             word = str(things[0])
         else:
             continue #this implies the line is empty
-            
-        
+
+
         #basic barriers
         barrier = False
         barrier |= len(word) < minLength or len(word) > maxLength
@@ -149,7 +149,6 @@ def ProcessEmbedsToPT(path: str,
                 if(barrier): break
         if(barrier): continue
 
-        firstWord = ""
         if(checkDic):
             if(not wordDic.check(word)): #not in dictionary\
                 barrier |= True
@@ -168,7 +167,7 @@ def ProcessEmbedsToPT(path: str,
             vector = torch.tensor([float(things[x]) for x in range(1, len(things))])
         except:
             vector = torch.tensor([1 * 300])
-            print(f"Warning: could not create vector on word '{word}'")
+            print(f"Warning: could not create vector on word: '{word}'")
 
         #set dictionaries
         if(firstWord.pos in bannedPos):
@@ -238,70 +237,45 @@ def EdgePairsToAdjencyList(edgePairs: list, maxID):
 
     for edge in edgePairs:
         adjencyList[edge[0]].append(edge[1])
-                
-        
 
 
-        
-            
-    
+
+
+
+
+
     print(f'Completed adjency list in {time.perf_counter() - startTime} seconds')
     return adjencyList
 
 
-#make wordata smaller for testing
-# length = 10000
-shortWordData = {
-    'vocab' : {},
-    'emb' : torch.Tensor()
-}
-# embeds = []
-# allWords = list(GameLogic._WordData['vocab'].keys())
-# for i in range(0, length):
-#     index = random.randrange(0, len(allWords))
-#     while allWords[index] in shortWordData["vocab"].keys():
-#         index = random.randrange(0, len(allWords))
 
-
-#     shortWordData['vocab'][allWords[index]] = GameLogic._WordData['vocab'][allWords[index]]
-#     embeds.append(GameLogic._WordData['emb'][shortWordData['vocab'][allWords[index]]['id']])
-#     shortWordData['vocab'][allWords[index]]['id'] = i
-
-# shortWordData['emb'] = torch.stack(embeds)
-
-# edgePairs = torch.nonzero(WordEdgeMatrix(shortWordData, similarityCutoff=0.68)).tolist()
-# adjList = EdgePairsToAdjencyList(edgePairs, len(shortWordData['vocab'].keys()))
-# print('Saving JSON...')
-# FileManager.SaveJsonDict(adjList, 'output/SmallAdjacencyList.json', indent=None)
-
-otherWordData = {
-    'vocab' : {},
-    'emb' : torch.Tensor()
-}
-fullData = torch.load('data/FullWikipediaWData.pt')
-wordData = GameLogic._WordData
-embeds = []
-wordOptions = wordData['vocab'].keys()
-for w in fullData['vocab'].keys():
-    if(w not in wordOptions):
-        otherWordData['vocab'][w] = fullData['vocab'][w]
-        embeds.append(fullData['emb'][fullData['vocab'][w]['id']])
-
-otherWordData['emb'] = torch.stack(embeds)
-torch.save(otherWordData, 'output/WikipediaOData.pt')
-
-
-# CleanWordData()
-
-
-# ConvertCSVToID('output/WordEdges.csv', 'output/WordEdgesID.csv', GameLogic._WordData)
-
-# print(len(GameLogic.LemmatarizedDict(GameLogic._WordData['vocab']))) #45379
 # processors = "tokenize, mwt, pos, lemma" #processors required for lemmatarization and noun identification
 # prenlp = stanza.Pipeline(lang='en', processors=processors, device='cuda', download_method=None)
-# del processors
 
-# ProcessEmbedsToPT("input/numberbatch-en.txt"                        , nlp=prenlp, minLength=3, maxLength=50, alphabetOnly=True, checkDic=True, allowDigits=False, bannedPos=["PRON", "DET", "CCONJ", "SCONJ", "PART", "PUNCT", "AUX", "INTJ", "ADV", "ADP"], skipLines=[0], dataPath="output/NumberBatchWData.pt", bannedPath="output/NumberBatchBData.pt")
-# ProcessEmbedsToPT("input/wiki-news-300d-1M.vec"                     , nlp=prenlp, minLength=3, maxLength=50, alphabetOnly=True, checkDic=True, allowDigits=False, bannedPos=["PRON", "DET", "CCONJ", "SCONJ", "PART", "PUNCT", "AUX", "INTJ", "ADV", "ADP"], skipLines=[0], dataPath="output/WikiNewsWData.pt", bannedPath="output/WikiNewsBData.pt")
-# ProcessEmbedsToPT("input/GoogleNews-vectors-negative300.txt"        , nlp=prenlp, minLength=3, maxLength=50, alphabetOnly=True, checkDic=True, allowDigits=False, bannedPos=["PRON", "DET", "CCONJ", "SCONJ", "PART", "PUNCT", "AUX", "INTJ", "ADV", "ADP"], skipLines=[0], dataPath="output/GoogleNewsWData.pt", bannedPath="output/GoogleNewsBData.pt")
-# ProcessEmbedsToPT("input/lexvec.commoncrawl.300d.W.pos.neg3.vectors", nlp=prenlp, minLength=3, maxLength=50, alphabetOnly=True, checkDic=True, allowDigits=False, bannedPos=["PRON", "DET", "CCONJ", "SCONJ", "PART", "PUNCT", "AUX", "INTJ", "ADV", "ADP"], skipLines=[0], dataPath="output/LexVecWData.pt", bannedPath="output/LexVecBData.pt")
+# ProcessEmbedsToPT("input\wiki_giga_2024_100_MFT20_vectors_seed_2024_alpha_0.75_eta_0.05.050_combined.txt"                        ,
+#                   nlp=prenlp, minLength=3,
+#                   maxLength=50,
+#                   alphabetOnly=True,
+#                   checkDic=True,
+#                   allowDigits=False,
+#                   bannedPos=["PRON", "DET", "CCONJ", "SCONJ", "PART", "PUNCT", "AUX", "INTJ", "ADV", "ADP"],
+#                   skipLines=[0],
+#                   dataPath="output/2024_WikipediaWData.pt",
+#                   bannedPath="output/2024_WikipediaBData.pt")
+
+# otherWordData = {
+#     'vocab' : {},
+#     'emb' : torch.Tensor()
+# }
+# fullData = torch.load('data/FullWikipediaWData.pt')
+# wordData = GameLogic._WordData
+# embeds = []
+# wordOptions = wordData['vocab'].keys()
+# for w in fullData['vocab'].keys():
+#     if(w not in wordOptions):
+#         otherWordData['vocab'][w] = fullData['vocab'][w]
+#         embeds.append(fullData['emb'][fullData['vocab'][w]['id']])
+
+# otherWordData['emb'] = torch.stack(embeds)
+# torch.save(otherWordData, 'output/WikipediaOData.pt')
+

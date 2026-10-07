@@ -22,7 +22,7 @@ SIM_CUTOFF = 0.675 #min similarity for word chain
 TERMINAL_RANGE = range(100, 10000)
 WORD_CATEGORY = {
     "banned" :["PRON", "DET", "CCONJ", "SCONJ", "PART", "PUNCT", "AUX", "INTJ"],
-    "halfBanned": ['PROPN', 'NUM'],
+    "halfBanned": ['PROPN', 'NUM', 'VERB', 'ADJ'],
     "allowed" : ['ADJ', 'VERB', 'NOUN']
 }
 
@@ -152,15 +152,15 @@ def GenerateStartEndWords(maxSimilarity: float = 0.675) -> tuple[str, str]:
     """
     wordInfo = wm._WordData['vocab']
 
-    end = RandomKey(wordInfo, TERMINAL_RANGE)
+    end = FeatSuffixRemove(RandomKey(wordInfo, TERMINAL_RANGE))
     while wordInfo[end]["pos"] in WORD_CATEGORY["halfBanned"]:
-        end = RandomKey(wordInfo, TERMINAL_RANGE)
+        end = FeatSuffixRemove(RandomKey(wordInfo, TERMINAL_RANGE))
 
 
     K = 0
-    start = RandomKey(wordInfo, TERMINAL_RANGE)
+    start = FeatSuffixRemove(RandomKey(wordInfo, TERMINAL_RANGE))
     while  wordInfo[start]["pos"] in WORD_CATEGORY["halfBanned"] or wm.WordSim(start, end) > maxSimilarity:
-        start = RandomKey(wordInfo, TERMINAL_RANGE)
+        start = FeatSuffixRemove(RandomKey(wordInfo, TERMINAL_RANGE))
         K+=1
         if(K > 10000):
             print("Warning: Taking too long to determine start and end words, maybe lower minDistance or raise terminal range?")
@@ -181,12 +181,9 @@ def CreateDailyGames(amount: int, seed: int) -> dict:
     
     return dailyGames
 
-dailyGames = CreateDailyGames(365, 0)
-import FileManager
-FileManager.SaveJsonDict(dailyGames, 'data/DailyGames.json')
-
-
-
+# dailyGames = CreateDailyGames(365, 0)
+# import FileManager
+# FileManager.SaveJsonDict(dailyGames, 'data/DailyGames.json')
 
 # LoadWordData('output/WikipediaWData.pt','output/WikipediaBData.pt')
 # while True:
