@@ -1,6 +1,6 @@
 import random
 import datetime
-import Dijkstra
+import Dijkstra as Dijkstra
 import math
 import WordManager as wm
 
@@ -181,9 +181,11 @@ def CreateDailyGames(amount: int, seed: int) -> dict:
     
     return dailyGames
 
-# dailyGames = CreateDailyGames(365, 0)
-# import FileManager
-# FileManager.SaveJsonDict(dailyGames, 'data/DailyGames.json')
+if __name__=="__main__":
+    # dailyGames = CreateDailyGames(365, 0)
+    # import FileManager
+    # FileManager.SaveJsonDict(dailyGames, 'data/DailyGames.json')'
+    pass
 
 # LoadWordData('output/WikipediaWData.pt','output/WikipediaBData.pt')
 # while True:

@@ -2,9 +2,9 @@ import enchant
 import torch
 import stanza
 import time
-import GameLogic
+import GameLogic as GameLogic
 import pandas as pd
-import FileManager
+import FileManager as FileManager
 import random
 
 def AddWord(embedsPath: str, appendPath: str, appendWord: str):

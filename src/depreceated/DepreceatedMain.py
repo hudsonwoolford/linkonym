@@ -1,11 +1,11 @@
 from nicegui import ui, app
-import GameLogic
-from CustomUI import ToggleButton
-from CustomUI import ToggleButtonManager
-import Dictionary as WordDictionary
+import src.GameLogic as GameLogic
+from src.CustomUI import ToggleButton
+from src.CustomUI import ToggleButtonManager
+import src.Dictionary as WordDictionary
 import asyncio
 import random
-import FileManager
+import src.FileManager as FileManager
 import datetime
 import os
 

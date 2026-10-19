@@ -1,4 +1,4 @@
-import FileManager
+import FileManager as FileManager
 import os
 import torch
 from torch import load as torchLoad
@@ -54,5 +54,5 @@ def LoadWordData(wordPath: str, bannedPath: str, otherPath: str, dailyPath: str,
     print('loaded')
 
 
-baseDir = os.path.dirname(os.path.abspath(__file__))
+baseDir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LoadWordData(os.path.join(baseDir,'data/2024_WikipediaWData.pt'), os.path.join(baseDir,'data/2024_WikipediaBData.pt'),  os.path.join(baseDir,'data/WikipediaOData.pt'), os.path.join(baseDir, 'data/DailyGames.json'), os.path.join(baseDir, 'data/WordAdjacency.pt'))

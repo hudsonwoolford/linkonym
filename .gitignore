@@ -175,3 +175,6 @@ cython_debug/
 /backups
 /input
 /output
+
+#custom
+.nicegui

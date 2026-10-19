@@ -1,7 +1,7 @@
 import igraph as ig
 import matplotlib.pyplot as plt
-import FileManager
-import GameLogic
+import src.FileManager as FileManager
+import src.GameLogic as GameLogic
 
 def GraphAdjacencyList(adjList: dict, layout: str = None, edgeWidth: float = 1, edgeColor: str = "#CCCCCC"):
     edges = []

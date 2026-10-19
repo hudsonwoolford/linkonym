@@ -1,16 +1,16 @@
 from nicegui import ui, app
-import GameLogic
+import GameLogic as GameLogic
 import WordManager as wm
 from CustomUI import ToggleButton
 from CustomUI import ToggleButtonManager
 import Dictionary as WordDictionary
 import asyncio
 import random
-import FileManager
+import FileManager as FileManager
 import datetime
 import os
 import math
-import ValueRemapping
+import ValueRemapping as ValueRemapping
 
 #region PARAMETERS
 #Colors
@@ -288,7 +288,7 @@ async def GamePage(seed: str, mode: str = 'daily'):
             with ui.timeline(side='right', layout='dense').classes('gap-0 p-0 h-full'):
                 for i, w in enumerate(wordChain):
                     wm.WordSim(w, terminalWords[1], 3)
-                    ui.timeline_entry("",subtitle=w).style('height: 4rem').classes('p-0')
+                    ui.timeline_entry("",subtitle=w).style('height: 4rem').classes('py-0')
                 scrollArea.scroll_to(percent=0)
                 ui.run_javascript(f"getElement('{scrollArea.id}').setScrollPercentage('vertical', 1, 750)")
 
@@ -470,7 +470,7 @@ def HeaderHTML():
 
     #Global site colors
     def ModeRefresh():
-        ui.colors(primary=CurrentColorScheme()[app.storage.user.get('color-index' 0)])
+        ui.colors(primary=CurrentColorScheme()[app.storage.user.get('color-index', 0)])
         app.storage.client.get('refresh-all')()
 
     ui.colors(primary=siteColor, positive=POSITIVE, negative=NEGATIVE, info=INFO, warning=WARNING)
@@ -686,7 +686,7 @@ def InitializeStorage(seed: str, startWord: str, targetWord: str, mobile: bool, 
     if(app.storage.user.get('randomize-color') == None):
         app.storage.user['randomize-color'] = False
     if(app.storage.user.get('dark-mode') == None):
-        app.storage.user['dark-mode'] = True
+        app.storage.user['dark-mode'] = False
     if(app.storage.user.get('game-scores') == None):
         app.storage.user['game-scores'] = []
     if(app.storage.user.get('games-played') == None):

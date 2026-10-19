@@ -2,7 +2,7 @@ import torch
 import matplotlib.pyplot as plt
 import matplotlib.figure as figure
 from sklearn.manifold import TSNE
-import FileManager
+import FileManager as FileManager
 import time
 import random
 

@@ -1,6 +1,6 @@
 import stanza
 import stanza.pipeline
-import FileManager
+import src.FileManager as FileManager
 
 
 def GetPretrainDict() -> dict:
