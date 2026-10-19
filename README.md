@@ -1,12 +1,12 @@
 # Linkonym
 
-A game where you chain semantically similar words to reach a target. Play the live version: [linkonym.com](linkonym.com)
+A game where you chain semantically similar words to reach a target. Play the live version: [linkonym.com](https://linkonym.com)
 
 ![Linkonym Short](assets/LinkonymShort.gif)
 
 ## Description
 
-Linkonym is a word association game that blends the fun of word puzzles like Wordle with the complexity of word embeddings. The project is live right now at [linkonym.com](linkonym.com) from a Cloudflare tunnel connected to my Raspberry pi. Also, Linkonym was exhibited at the 2025 PyconAU Student Showcase! See the presentation here: [https://www.youtube.com/watch?v=mqg93zv1S-E&t=1398s](https://youtu.be/mqg93zv1S-E?t=1104).
+Linkonym is a word association game that blends the fun of word puzzles like Wordle with the complexity of word embeddings. The project is live right now at [linkonym.com](https://linkonym.com) from a Cloudflare tunnel connected to my Raspberry pi. Also, Linkonym was exhibited at the 2025 PyconAU Student Showcase! See the presentation here: [https://www.youtube.com/watch?v=mqg93zv1S-E&t=1398s](https://youtu.be/mqg93zv1S-E?t=1104).
 
 ## Overview
 
