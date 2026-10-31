@@ -55,7 +55,7 @@ GAME_NAME = "Linkonym"
 BORDER_SETTINGS = f'border-color: {D_BORDER}; border-width: {BORDER_WIDTH}; border-radius: {BORDER_RADIUS}'
 NUM_DEFINITIONS = 2
 MAX_TRACK_GAMES = 50
-PORT = 8000
+PORT = 8080
 
 #other globals (not constant)
 _WebRandom = random.Random()

@@ -1,6 +1,6 @@
 # Linkonym
 
-A game where you chain semantically similar words to reach a target. Play the live version: [linkonym.com](https://linkonym.com)
+A game where you chain semantically similar words to reach a target. Play the live version: [linkonym.com](https://linkonym.com).
 
 ![Linkonym Short](assets/LinkonymShort.gif)
 
